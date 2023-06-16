@@ -12,13 +12,13 @@ This is a fork from the Hoymiles project [OpenDTU](https://github.com/tbnobody/O
 
 * Hoymiles inverter support for live data and display of various inverter internal information. (Partial) support for multiple inverters.
 * MQTT support (with TLS) with partial Home Assistant MQTT Auto Discovery
-* Automatic inverter power control of a selected Hoymiles inverter to compensate the currently used energy in the household. 
+* Automatic inverter power control of a selected Hoymiles inverter to compensate the currently used energy in the household.
 * Energy meter support with interface options to HTTP JSON based power meters (e.g. Tasmota), MQTT based power meters (e.g. Shelly 3EM) or SDM power meters.
-* Support for Victron MPPT charge controller using Ve.Direct. cf. Ve.direct: https://www.victronenergy.com/support-and-downloads/technical-information.
-* Generic voltage based battery support using Victron MPPT charge controller or Hoymiles inverter voltage values to start / stop inverter power output. (with load compensation)
-* Pylontech battery support via CAN bus interface. State of Charge reported by BMS is used to start / stop inverter power output. Battery data is exported via MQTT (no support for home assistant auto discovery). 
-* Support for Huawei R4850G2 power supply unit that can act as AC charging source. [Overview](https://www.beyondlogic.org/review-huawei-r4850g2-power-supply-53-5vdc-3kw/)
-* Other features from [OpenDTU](https://github.com/tbnobody/OpenDTU) maintained
+* Support for Victron MPPT charge controller using [Ve.Direct](https://www.victronenergy.com/support-and-downloads/technical-information).
+* Generic voltage based battery support using Victron MPPT charge controller or Hoymiles inverter voltage values to start / stop inverter power output (with load compensation).
+* Pylontech battery support via CAN bus interface. State of Charge reported by BMS is used to start / stop inverter power output. Battery data is exported via MQTT (no support for home assistant auto discovery).
+* Support for Huawei [R4850G2 power supply unit](https://www.beyondlogic.org/review-huawei-r4850g2-power-supply-53-5vdc-3kw/) that can act as AC charging source.
+* Other features from [upstream OpenDTU project](https://github.com/tbnobody/OpenDTU) maintained
 
 ## Hardware
 
