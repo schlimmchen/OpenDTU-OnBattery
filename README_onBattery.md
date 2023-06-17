@@ -96,31 +96,128 @@ Several screenshots of the frontend can be found here: [Screenshots](docs/screen
   * A documentation of the Web API can be found here: [Web-API Documentation](docs/Web-API.md)
   * Home Assistant auto discovery is supported. [Example image](https://user-images.githubusercontent.com/59169507/217558862-a83846c5-6070-43cd-9a0b-90a8b2e2e8c6.png)
 
-### Dynamic Power Limiter
+## Dynamic Power Limiter
 
-The dynamic power limiter is responsible for automatic inverter power adjustment. It will take the Power Meter (i.e. currently consumed power), the solar power and the battery charge state into account. The dynamic power limiter supports a few different strategies that can be configured from the user interface:
+The Dynamic Power Limiter (DPL) autonomously adjusts the power limit for a
+single inverter. By maximizing the utilization of locally generated solar
+energy, the DPL aids in minimizing grid power usage. Its primary input is the
+current power consumption reading from the power meter, which is used to
+calculate the inverter power limit.
 
-* Solar Passthrough is off
-  * When using this strategy the inverter is steered such that the currently consumed power (as provided by the power meter) is compensated for. This is done as long as the battery charge state is above the limit set by the stop threshold. The inverter is turned off if the battery reaches the limit and is only re-enabled if the battery charge state reaches the limit set by start threshold.  
-* Solar Passthrough is on and the battery drain strategy is empty when full
-  * This case applies the same strategy as the strategy above. In addition Solar Power will be used to compensate for the currently used energy in cases where the battery discharge is disabled. In this case the inverter power limit is constrained to the input solar power and the power meter value so that battery discharge is avoided.
-* Solar Passthrough is on and the battery drain strategy is empty at night
-  * When using this strategy the inverter is steered such that the currently consumed power (as provided by the power meter) is compensated for. During daytime energy is taken from solar and from the battery, if the battery level is above the start threshold. At night battery power is used until the battery level reaches the stop threshold. When operating on solar power only (i.e. without using the battery) the inverter power limit is constrained to the input solar power and the power meter value so that battery discharge is avoided. The daytime / nighttime switch is based on the Victron MPPT Solar Charger power and 20W input are required in this case. 
+Based on the system configuration and hardware, the DPL can optionally consider
+additional factors such as the battery charge state and the current volume of
+solar power being generated.
 
-Other settings are:
-* The inverter ID configures the inverter that is controlled by the power limiter. The power limiter can only control a single inverter at this point in time.
-* Channel ID is the inverter input channel ID that is used for battery voltage readings.
-* Target power consumption and hysteresis set the power range that can be consumed from the grid.
-* Power limits control the min / max limits of the inverter
-* Inverter is behind power meter. Select this if your inverter power is measured by the power meter. This is typically the case.
-* Battery start and stop threshold can be configured using voltage and / or state of charge values. Stage of charge values requires a Pylontech battery at this point.
-* A Battery full solar passthrough threshold can be configured using voltage or state of charge value. Stage of charge values requires a Pylontech battery at this point. The option can be used if the battery is full and will steer the inverter according to solar power reported by the Victron MPPT Solar Charger. 
+### Battery Charge State
+
+The battery charge state is determined using configurable threshold values,
+expressed in terms of State of Charge (SoC, a percentage) and voltage.
+
+* The SoC value is obtained from a compatible Battery Management System (BMS).
+  At present, Pylontech batteries connected via a CAN bus are supported.
+* Battery voltage is acquired from the solar charge controller, if available.
+  Otherwise, it is read from a specific, configurable input of the inverter.
+* The SoC thresholds are used to define the battery charge state, provided the
+  SoC value is available. If not, the voltage thresholds are used instead.
+* The start threshold value must be higher than the stop threshold value, for
+  both SoC and voltage.
+
+The DPL identifies the following battery states:
+
+* **Empty**: SoC/voltage is below stop threshold. Battery will not be discharged for energy production.
+* **Recharging**: SoC/voltage is above stop threshold but below start threshold, and the inverter is not discharging the battery. | Wating for the battery to reach the start threshold. |
+ Charged | SoC/voltage exceeds start threshold, or SoC/voltage is above stop threshold while the inverter is discharging the battery. | Battery is ready for discharging to produce AC power. |
+
+### Strategy
+
+The DPL operates based on a configurable strategy. Specifically, when the
+battery is in the 'Charged' state, the inverter's power limit is adjusted to
+match the power meter reading, effectively offsetting the current power
+consumption. The battery can concurrently discharge to produce power in the
+'Charged' state. However, if the battery is in the 'Recharging' or 'Empty'
+state, the inverter is completely shut down.
+
+#### Solar Passthrough
+
+The Solar Passthrough feature optimizes the use of available solar power when
+connected to a compatible solar charger that can report current solar energy
+production.
+
+Upon enabling Solar Passthrough, the inverter may generate power even if the
+battery isn't in the 'Charged' state. The current solar power, adjusted for
+efficiency, is enforced as the maximum power limit for the inverter. This
+mechanism only utilizes solar power to offset power consumption, avoiding
+battery discharge for energy production. If solar power is insufficient to
+fully offset power consumption, grid power will be consumed. In the event of
+solar power exceeding power consumption, the battery will charge in addition to
+the power consumption being offset.
+
+Once solar energy production ceases, the battery drain strategy determines the
+conditions for energy production:
+
+**Empty when Full**: If the battery is not in the 'Charged' state, the inverter
+is deactivated.
+
+**Empty at Night**: The battery is discharged for energy production, even if
+it is in the 'Recharging' state. Discharging will only continue until the
+battery is in the 'Empty' state.
+
+Solar energy production is considered "ceased" if the solar charger's output
+drops below 20W, usually at nighttime. Note that this condition also applies in
+failure scenarios, such as inability to determine solar power for any reason,
+or solar panels being disconnected.
+
+#### Full Solar Passthrough
+
+Full Solar Passthrough is an option available when Solar Passthrough is
+enabled. It relies on an additional threshold value, expected to be higher than
+the DPL start threshold.
+
+Upon reaching the Full Solar Passthrough threshold, the inverter's power limit
+is set equal to the solar power. In situations where the solar power output
+surpasses the power consumption, this surplus energy is hence fed back into the
+grid.
+
+### Other DPL settings
+
+* **Inverter ID**: Identifies the inverter to be controlled by the DPL. At
+  present, the DPL can only manage one inverter.
+* **Channel ID**: Specifies the inverter input channel ID used for battery
+  voltage readings.
+* **Target Power Consumption**: Sets a desired power consumption level. The DPL
+  will adjust the inverter power limit to achieve this target, instead of zero.
+* **Hysteresis**: Defines the permissible range for power consumption to vary
+  around the target value without triggering a power limit adjustment in the
+  inverter.
+* **Lower Power Limit**: Sets a minimum for the calculated inverter power
+  limit. If the calculated limit falls below this value, the inverter is turned
+  off.
+* **Upper Power Limit**: Sets a maximum for the calculated inverter power
+  limit, which is always capped at this value.
+* **Inverter is Behind Power Meter**: This should be enabled if the power meter
+  measurement includes the inverter power output, which is typically the case.
 
 ![image](https://user-images.githubusercontent.com/59169507/222155765-9fff47a4-8ffa-42cf-8671-6359288e0cab.png)
 
 #### Power Limiter States
 ![PowerLimiterInverterStates](https://github.com/helgeerbe/OpenDTU-OnBattery/blob/development/docs/PowerLimiterInverterStates.png)
 
+### Using the DPL without a battery
+
+The DPL can be configured to match the power limit of a single inverter with
+the power consumption measured by a power meter, even without a battery
+connected to the inverter. This setup helps prevent feeding energy into the
+grid.
+
+In the absence of a battery, the SoC value is unavailable, and voltage
+thresholds are utilized to dictate operational behavior:
+
+* Disable the Solar Passthrough feature.
+* Set the DPL start threshold to a low value to keep the DPL active. A value of
+  22V, equivalent to the Hoymiles inverter start-up voltage, is typically
+  recommended.
+* Configure the DPL stop voltage to a value lower than the DPL start threshold,
+  e.g., 21V. Avoid setting this to 0V, which has a reserved meaning.
 
 ## Troubleshooting
 
