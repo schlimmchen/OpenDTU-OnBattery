@@ -40,7 +40,7 @@ bool HuaweiCanCommClass::init(uint8_t huawei_miso, uint8_t huawei_mosi, uint8_t 
     _huaweiIrq = huawei_irq;
 
     _CAN = new MCP_CAN(SPI, huawei_cs);
-    if (!_CAN->begin(MCP_STDEXT, CAN_125KBPS, MCP_8MHZ) == CAN_OK) {
+    if (!_CAN->begin(MCP_STDEXT, CAN_125KBPS, MCP_16MHZ) == CAN_OK) {
         return false;
     }
 
