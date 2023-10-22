@@ -94,3 +94,36 @@ int32_t VictronMpptClass::getPowerOutputWatts() const
 
     return sum;
 }
+
+int32_t VictronMpptClass::getPanelPowerWatts() const
+{
+    int32_t sum = 0;
+
+    for (const auto& upController : _controllers) {
+        sum += upController->getData()->PPV;
+    }
+
+    return sum;
+}
+
+double VictronMpptClass::getYieldTotal() const
+{
+    double sum = 0;
+
+    for (const auto& upController : _controllers) {
+        sum += upController->getData()->H19;
+    }
+
+    return sum;
+}
+
+double VictronMpptClass::getYieldDay() const
+{
+    double sum = 0;
+
+    for (const auto& upController : _controllers) {
+        sum += upController->getData()->H20;
+    }
+
+    return sum;
+}
