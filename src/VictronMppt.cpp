@@ -78,7 +78,7 @@ VeDirectMpptController::spData_t VictronMpptClass::getData(size_t idx) const
     if (_controllers.empty() || idx >= _controllers.size()) {
         MessageOutput.printf("ERROR: MPPT controller index %d is out of bounds (%d controllers)\r\n",
                 idx, _controllers.size());
-        return VeDirectMpptController::spData_t{};
+        return std::make_shared<VeDirectMpptController::veMpptStruct>();
     }
 
     return _controllers[idx]->getData();
