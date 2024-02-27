@@ -78,15 +78,20 @@ void MqttHandlePowerLimiterClass::onCmdMode(const espMqttClientTypes::MessagePro
 
     using Mode = PowerLimiterClass::Mode;
     switch (static_cast<Mode>(intValue)) {
+        case Mode::DisabledUnlimited:
+            MessageOutput.println("Power limiter disabled with inverter power unlimited");
+            _mqttCallbacks.push_back(std::bind(&PowerLimiterClass::setMode,
+                        &PowerLimiter, Mode::DisabledUnlimited));
+            break;
         case Mode::UnconditionalFullSolarPassthrough:
             MessageOutput.println("Power limiter unconditional full solar PT");
             _mqttCallbacks.push_back(std::bind(&PowerLimiterClass::setMode,
                         &PowerLimiter, Mode::UnconditionalFullSolarPassthrough));
             break;
-        case Mode::Disabled:
-            MessageOutput.println("Power limiter disabled (override)");
+        case Mode::DisabledShutdown:
+            MessageOutput.println("Power limiter disabled with inverter shutdown");
             _mqttCallbacks.push_back(std::bind(&PowerLimiterClass::setMode,
-                        &PowerLimiter, Mode::Disabled));
+                        &PowerLimiter, Mode::DisabledShutdown));
             break;
         case Mode::Normal:
             MessageOutput.println("Power limiter normal operation");

@@ -30,7 +30,8 @@ public:
     enum class Status : unsigned {
         Initializing,
         DisabledByConfig,
-        DisabledByMqtt,
+        DisabledByMqttWithShutdown,
+        DisabledByMqttWithUnlimitedInverter,
         WaitingForValidTimestamp,
         PowerMeterDisabled,
         PowerMeterTimeout,
@@ -55,8 +56,9 @@ public:
 
     enum class Mode : unsigned {
         Normal = 0,
-        Disabled = 1,
-        UnconditionalFullSolarPassthrough = 2
+        DisabledShutdown = 1,
+        UnconditionalFullSolarPassthrough = 2,
+        DisabledUnlimited = 3
     };
 
     void setMode(Mode m) { _mode = m; }

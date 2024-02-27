@@ -30,10 +30,11 @@ frozen::string const& PowerLimiterClass::getStatusText(PowerLimiterClass::Status
 {
     static const frozen::string missing = "programmer error: missing status text";
 
-    static const frozen::map<Status, frozen::string, 19> texts = {
+    static const frozen::map<Status, frozen::string, 20> texts = {
         { Status::Initializing, "initializing (should not see me)" },
         { Status::DisabledByConfig, "disabled by configuration" },
-        { Status::DisabledByMqtt, "disabled by MQTT" },
+        { Status::DisabledByMqttWithShutdown, "disabled by MQTT (inverter kept shut down)" },
+        { Status::DisabledByMqttWithUnlimitedInverter, "disabled by MQTT (inverter kept at 100% power)" },
         { Status::WaitingForValidTimestamp, "waiting for valid date and time to be available" },
         { Status::PowerMeterDisabled, "no power meter is configured/enabled" },
         { Status::PowerMeterTimeout, "power meter readings are outdated" },
@@ -137,8 +138,8 @@ void PowerLimiterClass::loop()
         return;
     }
 
-    if (Mode::Disabled == _mode) {
-        shutdown(Status::DisabledByMqtt);
+    if (Mode::DisabledShutdown == _mode) {
+        shutdown(Status::DisabledByMqttWithShutdown);
         return;
     }
 
@@ -194,6 +195,14 @@ void PowerLimiterClass::loop()
     if (Mode::UnconditionalFullSolarPassthrough == _mode) {
         // handle this mode of operation separately
         return unconditionalSolarPassthrough(_inverter);
+    }
+
+    if (Mode::DisabledUnlimited == _mode) {
+        auto maxPower = _inverter->DevInfo()->getMaxPower();
+        if (_lastRequestedPowerLimit != maxPower) {
+            commitPowerLimit(_inverter, maxPower, true);
+        }
+        return announceStatus(Status::DisabledByMqttWithUnlimitedInverter);
     }
 
     // the normal mode of operation requires a valid
