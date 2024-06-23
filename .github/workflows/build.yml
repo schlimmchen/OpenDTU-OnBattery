@@ -120,6 +120,7 @@ jobs:
           name: opendtu-onbattery-${{ matrix.environment }}
           path: |
             .pio/build/${{ matrix.environment }}/opendtu-onbattery-${{ matrix.environment }}.bin
+            !.pio/build/generic_esp32_4mb_no_ota/opendtu-onbattery-generic_esp32_4mb_no_ota.bin
             .pio/build/${{ matrix.environment }}/opendtu-onbattery-${{ matrix.environment }}.factory.bin
 
   release:
