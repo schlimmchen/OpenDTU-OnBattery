@@ -543,15 +543,21 @@ export default defineComponent({
     created() {
         this.getAllData();
     },
+    watch: {
+        unmanagedInverters(newInverters) {
+            if (newInverters.includes(this.additionalInverterSerial)) { return; }
+            this.additionalInverterSerial = newInverters.length > 0 ? newInverters[0] : "";
+        }
+    },
     computed: {
         unmanagedInverters() {
-            const managedSerials = this.powerLimiterConfigList.inverters.map((inverter) => inverter.serial);
+            const managedInverters = this.powerLimiterConfigList.inverters;
+            if (!managedInverters) { return []; }
+
+            const managedSerials = managedInverters.map((inverter) => inverter.serial);
             const res = Object.keys(this.powerLimiterMetaData.inverters).filter(
                 (serial) => !managedSerials.includes(serial)
             );
-            if (res.length > 0) {
-                this.additionalInverterSerial = res[0];
-            }
             return res;
         },
         batteryPoweredInverters() {
@@ -686,7 +692,7 @@ export default defineComponent({
             const cfg = this.powerLimiterConfigList;
 
             let assigned = false;
-            for (let inverter of cfg.inverters) {
+            for (const inverter of cfg.inverters) {
                 if (inverter.serial == this.editInverter.serial) {
                     Object.assign(inverter, this.editInverter);
                     assigned = true;
