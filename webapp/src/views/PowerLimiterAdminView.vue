@@ -734,7 +734,6 @@ export default defineComponent({
                 }
             }
 
-            console.log("deleted inverter " + this.editInverter.serial);
             if (cfg.inverter_serial_for_dc_voltage === this.editInverter.serial) {
                 // previously selected inverter was deleted. marks serial as
                 // invalid, selects placeholder option.
@@ -747,11 +746,9 @@ export default defineComponent({
                 .then((response) => handleResponse(response, this.$emitter, this.$router))
                 .then((data) => {
                     this.powerLimiterMetaData = data;
-                    console.log(data);
                     fetch('/api/powerlimiter/config', { headers: authHeader() })
                         .then((response) => handleResponse(response, this.$emitter, this.$router))
                         .then((data) => {
-                            console.log(data);
                             this.powerLimiterConfigList = data;
                             this.dataLoading = false;
                         });
