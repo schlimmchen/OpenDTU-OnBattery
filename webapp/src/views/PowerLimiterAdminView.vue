@@ -76,6 +76,16 @@
                     type="number"
                     wide
                 />
+
+                <InputElement
+                    v-show="isEnabled()"
+                    :label="$t('powerlimiteradmin.TotalUpperPowerLimit')"
+                    :tooltip="$t('powerlimiteradmin.TotalUpperPowerLimitHint')"
+                    v-model="powerLimiterConfigList.total_upper_power_limit"
+                    postfix="W"
+                    type="number"
+                    wide
+                />
             </CardElement>
 
             <CardElement
