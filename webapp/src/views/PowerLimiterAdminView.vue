@@ -146,9 +146,6 @@
                 <div v-else class="alert alert-warning" role="alert">
                     {{ $t('powerlimiteradmin.NoManagedInverters') }}
                 </div>
-                <div v-if="unsupportedInverterCombination" class="alert alert-warning" role="alert">
-                    {{ $t('powerlimiteradmin.UnsupportedInverterCombination') }}
-                </div>
             </CardElement>
 
             <CardElement
@@ -574,10 +571,6 @@ export default defineComponent({
         },
         batteryPoweredInverters() {
             return this.powerLimiterConfigList.inverters.filter((inverter) => !inverter.is_solar_powered);
-        },
-        unsupportedInverterCombination() {
-            const selected = this.powerLimiterConfigList.inverters.length;
-            return selected > 1 && this.batteryPoweredInverters.length < selected;
         },
     },
     methods: {
