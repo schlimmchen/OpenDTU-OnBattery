@@ -581,7 +581,11 @@ export default defineComponent({
                 hints.push({ severity: 'requirement', subject: 'NoInverter' });
                 this.configAlert = true;
             } else {
-                for (const inv of Object.values(meta.inverters)) {
+                const managedInverters = this.powerLimiterConfigList.inverters;
+                for (const managedInv of Object.values(managedInverters)) {
+                    const metaInverters = this.powerLimiterMetaData.inverters;
+                    const inv = metaInverters[managedInv.serial];
+                    if (!inv) { continue; }
                     if (
                         inv !== undefined &&
                         !(inv.poll_enable && inv.command_enable && inv.poll_enable_night && inv.command_enable_night)
