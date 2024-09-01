@@ -547,7 +547,19 @@ export default defineComponent({
         unmanagedInverters(newInverters) {
             if (newInverters.includes(this.additionalInverterSerial)) { return; }
             this.additionalInverterSerial = newInverters.length > 0 ? newInverters[0] : "";
-        }
+        },
+        'powerLimiterConfigList.inverter_serial_for_dc_voltage'(newValue, oldValue) {
+            if (newValue === '') { return; } // do no inspect placeholder value
+
+            const managedInverters = this.powerLimiterConfigList.inverters;
+            if (!managedInverters) { return []; }
+
+            const managedSerials = managedInverters.map((inverter) => inverter.serial);
+            if (!managedSerials.includes(newValue)) {
+                // marks serial as invalid, selects placeholder option
+                this.powerLimiterConfigList.inverter_serial_for_dc_voltage = '';
+            }
+        },
     },
     computed: {
         unmanagedInverters() {
@@ -693,7 +705,7 @@ export default defineComponent({
         editSubmit() {
             this.modalEdit.hide();
 
-            const cfg = this.powerLimiterConfigList;
+            let cfg = this.powerLimiterConfigList;
 
             let assigned = false;
             for (const inverter of cfg.inverters) {
@@ -705,7 +717,7 @@ export default defineComponent({
             }
 
             if (!assigned) {
-                this.powerLimiterConfigList.inverters.push(JSON.parse(JSON.stringify(this.editInverter)));
+                cfg.inverters.push(JSON.parse(JSON.stringify(this.editInverter)));
             }
         },
         deleteStart(inverter: PowerLimiterInverterConfig) {
