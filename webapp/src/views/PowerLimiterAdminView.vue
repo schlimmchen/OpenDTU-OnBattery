@@ -152,17 +152,16 @@
                 :text="$t('powerlimiteradmin.InverterSettings')"
                 textVariant="text-bg-primary"
                 add-space
-                v-if="isEnabled()"
+                v-if="isEnabled() && batteryPoweredInverterConfigured()"
             >
                 <InputElement
-                    v-show="canUseBatteryDischargeAtNight()"
                     :label="$t('powerlimiteradmin.BatteryDischargeAtNight')"
                     v-model="powerLimiterConfigList.battery_always_use_at_night"
                     type="checkbox"
                     wide
                 />
 
-                <div class="row mb-3" v-if="batteryPoweredInverterConfigured()">
+                <div class="row mb-3">
                     <label for="inverter_serial_for_dc_voltage" class="col-sm-4 col-form-label">
                         {{ $t('powerlimiteradmin.InverterForDcVoltage') }}
                     </label>
@@ -208,7 +207,7 @@
                     </div>
                 </div>
 
-                <div class="row mb-3" v-if="batteryPoweredInverterConfigured()">
+                <div class="row mb-3">
                     <label for="inverter_restart" class="col-sm-4 col-form-label">
                         {{ $t('powerlimiteradmin.InverterRestartHour') }}
                         <BIconInfoCircle v-tooltip :title="$t('powerlimiteradmin.InverterRestartHint')" />
@@ -618,9 +617,6 @@ export default defineComponent({
         },
         hasPowerMeter() {
             return this.powerLimiterMetaData.power_meter_enabled;
-        },
-        canUseBatteryDischargeAtNight() {
-            return this.batteryPoweredInverterConfigured();
         },
         canUseSolarPassthrough() {
             const cfg = this.powerLimiterConfigList;
