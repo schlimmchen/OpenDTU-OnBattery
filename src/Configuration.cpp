@@ -106,6 +106,18 @@ void ConfigurationClass::serializePowerLimiterConfig(PowerLimiterConfig const& s
         return String(serialBuffer);
     };
 
+    // we want a representation of our floating-point value in the JSON that
+    // uses the least amount of decimal digits possble to convey the value that
+    // is actually represented by the float. this is no easy task. ArduinoJson
+    // does this for us, however, it does it as expected only for variables of
+    // type double. this is probably because it assumes all floating-point
+    // values to have the precision of a double (64 bits), so it prints the
+    // respective number of siginificant decimals, which are too many if the
+    // actual value is a float (32 bits).
+    auto roundedFloat = [](float val) -> double {
+        return static_cast<int>(val * 100 + 0.5) / 100.0;
+    };
+
     target["enabled"] = source.Enabled;
     target["verbose_logging"] = source.VerboseLogging;
     target["solar_passthrough_enabled"] = source.SolarPassThroughEnabled;
@@ -117,12 +129,12 @@ void ConfigurationClass::serializePowerLimiterConfig(PowerLimiterConfig const& s
     target["ignore_soc"] = source.IgnoreSoc;
     target["battery_soc_start_threshold"] = source.BatterySocStartThreshold;
     target["battery_soc_stop_threshold"] = source.BatterySocStopThreshold;
-    target["voltage_start_threshold"] = source.VoltageStartThreshold;
-    target["voltage_stop_threshold"] = source.VoltageStopThreshold;
+    target["voltage_start_threshold"] = roundedFloat(source.VoltageStartThreshold);
+    target["voltage_stop_threshold"] = roundedFloat(source.VoltageStopThreshold);
     target["voltage_load_correction_factor"] = source.VoltageLoadCorrectionFactor;
     target["full_solar_passthrough_soc"] = source.FullSolarPassThroughSoc;
-    target["full_solar_passthrough_start_voltage"] = source.FullSolarPassThroughStartVoltage;
-    target["full_solar_passthrough_stop_voltage"] = source.FullSolarPassThroughStopVoltage;
+    target["full_solar_passthrough_start_voltage"] = roundedFloat(source.FullSolarPassThroughStartVoltage);
+    target["full_solar_passthrough_stop_voltage"] = roundedFloat(source.FullSolarPassThroughStopVoltage);
     target["inverter_serial_for_dc_voltage"] = serialStr(source.InverterSerialForDcVoltage);
     target["inverter_channel_id_for_dc_voltage"] = source.InverterChannelIdForDcVoltage;
     target["inverter_restart_hour"] = source.RestartHour;
