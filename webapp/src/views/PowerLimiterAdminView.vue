@@ -554,7 +554,7 @@ export default defineComponent({
             if (newInverters.includes(this.additionalInverterSerial)) { return; }
             this.additionalInverterSerial = newInverters.length > 0 ? newInverters[0] : "";
         },
-        'powerLimiterConfigList.inverter_serial_for_dc_voltage'(newValue, oldValue) {
+        'powerLimiterConfigList.inverter_serial_for_dc_voltage'(newValue) {
             if (newValue === '') { return; } // do no inspect placeholder value
 
             const managedInverters = this.powerLimiterConfigList.inverters;
@@ -629,7 +629,6 @@ export default defineComponent({
             return this.powerLimiterMetaData.power_meter_enabled;
         },
         canUseSolarPassthrough() {
-            const cfg = this.powerLimiterConfigList;
             const meta = this.powerLimiterMetaData;
             return this.isEnabled() && meta.charge_controller_enabled && this.batteryPoweredInverterConfigured();
         },
@@ -704,7 +703,7 @@ export default defineComponent({
         editSubmit() {
             this.modalEdit.hide();
 
-            let cfg = this.powerLimiterConfigList;
+            const cfg = this.powerLimiterConfigList;
 
             let assigned = false;
             for (const inverter of cfg.inverters) {
