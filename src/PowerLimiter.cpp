@@ -297,17 +297,24 @@ void PowerLimiterClass::loop()
                 (config.PowerLimiter.BatteryAlwaysUseAtNight?"yes":"no"));
     };
 
-    auto consumption = calcHouseholdConsumption();
-    auto coveredBySolar = updateInverterLimits(consumption, sSolarPoweredFilter, sSolarPoweredExpression);
-    auto remaining = (consumption >= coveredBySolar) ? consumption - coveredBySolar : 0;
+    // this value is negative if we are exporting power to the grid
+    // from power sources other than DPL-managed inverters.
+    int16_t consumption = calcHouseholdConsumption();
+
+    uint16_t inverterTotalPower = (consumption > 0) ? static_cast<uint16_t>(consumption) : 0;
+
+    auto coveredBySolar = updateInverterLimits(inverterTotalPower, sSolarPoweredFilter, sSolarPoweredExpression);
+    auto remaining = (inverterTotalPower >= coveredBySolar) ? inverterTotalPower - coveredBySolar : 0;
     auto batteryAllowance = calcBatteryAllowance(remaining);
     auto coveredByBattery = updateInverterLimits(batteryAllowance, sBatteryPoweredFilter, sBatteryPoweredExpression);
 
     if (_verboseLogging) {
         MessageOutput.printf("[DPL::loop] consumption: %d W, "
-                "solar inverters output: %d W, battery allowance: "
-                "%d W, battery inverters output: %d W\r\n", consumption,
-                coveredBySolar, batteryAllowance, coveredByBattery);
+                "total inverter target output: %u W, "
+                "solar inverters output: %u W, battery allowance: "
+                "%u W, battery inverters output: %u W\r\n",
+                consumption, inverterTotalPower, coveredBySolar,
+                batteryAllowance, coveredByBattery);
     }
 
     _lastExpectedInverterOutput = coveredBySolar + coveredByBattery;
@@ -446,7 +453,7 @@ uint8_t PowerLimiterClass::getPowerLimiterState()
     return _batteryDischargeEnabled ? PL_UI_STATE_USE_SOLAR_AND_BATTERY : PL_UI_STATE_USE_SOLAR_ONLY;
 }
 
-uint16_t PowerLimiterClass::calcHouseholdConsumption()
+int16_t PowerLimiterClass::calcHouseholdConsumption()
 {
     auto const& config = Configuration.get();
     auto targetConsumption = config.PowerLimiter.TargetPowerConsumption;
@@ -457,7 +464,7 @@ uint16_t PowerLimiterClass::calcHouseholdConsumption()
 
     if (_verboseLogging) {
         MessageOutput.printf("[DPL::calcHouseholdConsumption] target "
-                "consumption: %d W, base load: %d W\r\n",
+                "consumption: %d W, base load: %u W\r\n",
                 targetConsumption, baseLoad);
 
         MessageOutput.printf("[DPL::calcHouseholdConsumption] power meter "
@@ -467,7 +474,7 @@ uint16_t PowerLimiterClass::calcHouseholdConsumption()
 
     if (!meterValid) { return baseLoad; }
 
-    auto consumption = meterValue;
+    auto consumption = static_cast<int16_t>(meterValue + (meterValue > 0 ? 0.5 : -0.5));
 
     for (auto const& inv : _inverters) {
         if (!inv.isBehindPowerMeter()) { continue; }
@@ -479,7 +486,7 @@ uint16_t PowerLimiterClass::calcHouseholdConsumption()
         consumption += invOutput;
         if (_verboseLogging) {
             MessageOutput.printf("[DPL::calcHouseholdConsumption] inverter %s is "
-                    "behind power meter producing %d W\r\n", inv.getSerialStr(), invOutput);
+                    "behind power meter producing %u W\r\n", inv.getSerialStr(), invOutput);
         }
     }
 
