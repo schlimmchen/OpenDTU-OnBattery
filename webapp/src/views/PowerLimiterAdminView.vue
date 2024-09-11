@@ -64,6 +64,7 @@
                     placeholder="200"
                     postfix="W"
                     type="number"
+                    min=0
                     wide
                 />
 
@@ -74,6 +75,7 @@
                     v-model="powerLimiterConfigList.target_power_consumption_hysteresis"
                     postfix="W"
                     type="number"
+                    min=1
                     wide
                 />
 
@@ -84,6 +86,7 @@
                     v-model="powerLimiterConfigList.total_upper_power_limit"
                     postfix="W"
                     type="number"
+                    min=1
                     wide
                 />
             </CardElement>
