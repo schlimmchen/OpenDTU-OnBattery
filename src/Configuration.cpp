@@ -115,7 +115,7 @@ void ConfigurationClass::serializePowerLimiterConfig(PowerLimiterConfig const& s
     // respective number of siginificant decimals, which are too many if the
     // actual value is a float (32 bits).
     auto roundedFloat = [](float val) -> double {
-        return static_cast<int>(val * 100 + 0.5) / 100.0;
+        return static_cast<int>(val * 100 + (val > 0 ? 0.5 : -0.5)) / 100.0;
     };
 
     target["enabled"] = source.Enabled;
