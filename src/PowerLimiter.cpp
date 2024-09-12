@@ -96,7 +96,7 @@ bool PowerLimiterClass::shutdown(PowerLimiterClass::Status status)
 {
     announceStatus(status);
 
-    for (auto& inv : _inverters) { inv.standby(); }
+    for (auto& upInv : _inverters) { upInv->standby(); }
 
     return updateInverters();
 }
@@ -142,15 +142,14 @@ void PowerLimiterClass::loop()
 
         auto iter = _inverters.begin();
         while (iter != _inverters.end()) {
-            if (iter->getSerial() == invConfig.Serial) { break; }
+            if ((*iter)->getSerial() == invConfig.Serial) { break; }
             ++iter;
         }
 
         if (iter != _inverters.end()) { continue; } // inverter is known
 
-        // emplace hoping that the inverter is valid. erase again if it is not.
-        iter = _inverters.emplace(iter, _verboseLogging, invConfig);
-        if (!iter->isValid()) { _inverters.erase(iter); }
+        auto upInv = PowerLimiterInverter::create(_verboseLogging, invConfig);
+        if (upInv) { _inverters.push_back(std::move(upInv)); }
     }
 
     // remove inverters if they were removed from the DPL config
@@ -161,13 +160,13 @@ void PowerLimiterClass::loop()
         for (size_t i = 0; i < INV_MAX_COUNT; ++i) {
             auto const& inv = config.PowerLimiter.Inverters[i];
             if (inv.Serial == 0ULL) { break; }
-            found = inv.Serial == iter->getSerial();
+            found = inv.Serial == (*iter)->getSerial();
             if (found) { break; }
         }
 
         if (!found) {
-            iter->standby();
-            if (iter->update()) {
+            (*iter)->standby();
+            if ((*iter)->update()) {
                 return announceStatus(Status::InverterRemoval);
             }
 
@@ -192,8 +191,8 @@ void PowerLimiterClass::loop()
 
     uint32_t latestInverterStats = 0;
 
-    for (auto const& inv : _inverters) {
-        auto oStatsMillis = inv.getLatestStatsMillis();
+    for (auto const& upInv : _inverters) {
+        auto oStatsMillis = upInv->getLatestStatsMillis();
         if (!oStatsMillis) {
             return announceStatus(Status::InverterStatsPending);
         }
@@ -227,8 +226,8 @@ void PowerLimiterClass::loop()
     // Check if next inverter restart time is reached
     if ((_nextInverterRestart > 1) && (_nextInverterRestart <= millis())) {
         MessageOutput.println("[DPL::loop] send inverter restart");
-        for (auto& inv : _inverters) {
-            if (!inv.isSolarPowered()) { inv.restart(); }
+        for (auto& upInv : _inverters) {
+            if (!upInv->isSolarPowered()) { upInv->restart(); }
         }
         calcNextInverterRestart();
     }
@@ -348,14 +347,14 @@ float PowerLimiterClass::getBatteryVoltage(bool log) {
     float inverterVoltage = -1;
     auto iter = _inverters.begin();
     while(iter != _inverters.end()) {
-        if (iter->getSerial() == config.PowerLimiter.InverterSerialForDcVoltage) {
+        if ((*iter)->getSerial() == config.PowerLimiter.InverterSerialForDcVoltage) {
             break;
         }
         ++iter;
     }
     if (iter != _inverters.end()) {
-        inverterSerial = iter->getSerialStr();
-        res = inverterVoltage = iter->getDcVoltage(config.PowerLimiter.InverterChannelIdForDcVoltage);
+        inverterSerial = (*iter)->getSerialStr();
+        res = inverterVoltage = (*iter)->getDcVoltage(config.PowerLimiter.InverterChannelIdForDcVoltage);
     }
 
     float chargeControllerVoltage = -1;
@@ -408,8 +407,8 @@ void PowerLimiterClass::fullSolarPassthrough(PowerLimiterClass::Status reason)
     if ((millis() - _lastCalculation) < _calculationBackoffMs) { return; }
     _lastCalculation = millis();
 
-    for (auto& inv : _inverters) {
-        if (inv.isSolarPowered()) { inv.setMaxOutput(); }
+    for (auto& upInv : _inverters) {
+        if (upInv->isSolarPowered()) { upInv->setMaxOutput(); }
     }
 
     uint16_t targetOutput = 0;
@@ -427,8 +426,8 @@ void PowerLimiterClass::fullSolarPassthrough(PowerLimiterClass::Status reason)
 uint8_t PowerLimiterClass::getInverterUpdateTimeouts() const
 {
     uint8_t res = 0;
-    for (auto const& inv : _inverters) {
-        res += inv.getUpdateTimeouts();
+    for (auto const& upInv : _inverters) {
+        res += upInv->getUpdateTimeouts();
     }
     return res;
 }
@@ -437,9 +436,9 @@ uint8_t PowerLimiterClass::getPowerLimiterState()
 {
     bool reachable = false;
     bool producing = false;
-    for (auto const& inv : _inverters) {
-        reachable |= inv.isReachable();
-        producing |= inv.isProducing();
+    for (auto const& upInv : _inverters) {
+        reachable |= upInv->isReachable();
+        producing |= upInv->isProducing();
     }
 
     if (!reachable) {
@@ -476,17 +475,17 @@ int16_t PowerLimiterClass::calcHouseholdConsumption()
 
     auto consumption = static_cast<int16_t>(meterValue + (meterValue > 0 ? 0.5 : -0.5));
 
-    for (auto const& inv : _inverters) {
-        if (!inv.isBehindPowerMeter()) { continue; }
+    for (auto const& upInv : _inverters) {
+        if (!upInv->isBehindPowerMeter()) { continue; }
 
         // If the inverter is wired behind the power meter, i.e., if its
         // output is part of the power meter measurement, the produced
         // power of this inverter has to be taken into account.
-        auto invOutput = inv.getCurrentOutputAcWatts();
+        auto invOutput = upInv->getCurrentOutputAcWatts();
         consumption += invOutput;
         if (_verboseLogging) {
             MessageOutput.printf("[DPL::calcHouseholdConsumption] inverter %s is "
-                    "behind power meter producing %u W\r\n", inv.getSerialStr(), invOutput);
+                    "behind power meter producing %u W\r\n", upInv->getSerialStr(), invOutput);
         }
     }
 
@@ -504,27 +503,27 @@ uint16_t PowerLimiterClass::updateInverterLimits(uint16_t powerRequested,
     std::vector<PowerLimiterInverter*> matchingInverters;
     uint16_t producing = 0; // sum of AC power the matching inverters produce now
 
-    for (auto& inv : _inverters) {
-        if (!filter(inv)) { continue; }
+    for (auto& upInv : _inverters) {
+        if (!filter(*upInv)) { continue; }
 
-        if (!inv.isReachable()) {
+        if (!upInv->isReachable()) {
             if (_verboseLogging) {
                 MessageOutput.printf("[DPL::updateInverterLimits] skipping %s "
-                        "as it is not reachable\r\n", inv.getSerialStr());
+                        "as it is not reachable\r\n", upInv->getSerialStr());
             }
             continue;
         }
 
-        if (!inv.isSendingCommandsEnabled()) {
+        if (!upInv->isSendingCommandsEnabled()) {
             if (_verboseLogging) {
                 MessageOutput.printf("[DPL::updateInverterLimits] skipping %s "
-                        "as sending commands is disabled\r\n", inv.getSerialStr());
+                        "as sending commands is disabled\r\n", upInv->getSerialStr());
             }
             continue;
         }
 
-        producing += inv.getCurrentOutputAcWatts();
-        matchingInverters.push_back(&inv);
+        producing += upInv->getCurrentOutputAcWatts();
+        matchingInverters.push_back(upInv.get());
     }
 
     int32_t diff = powerRequested - producing;
@@ -638,8 +637,8 @@ bool PowerLimiterClass::updateInverters()
 {
     bool busy = false;
 
-    for (auto& inv : _inverters) {
-        if (inv.update()) { busy = true; }
+    for (auto& upInv : _inverters) {
+        if (upInv->update()) { busy = true; }
     }
 
     return busy;
@@ -662,12 +661,12 @@ float PowerLimiterClass::getBatteryInvertersOutputAcWatts()
 {
     float res = 0;
 
-    for (auto const& inv : _inverters) {
-        if (inv.isSolarPowered()) { continue; }
+    for (auto const& upInv : _inverters) {
+        if (upInv->isSolarPowered()) { continue; }
         // TODO(schlimmchen): we must use the DC power instead, as the battery
         // voltage drops proportional to the DC current draw, but the AC power
         // output does not correlate with the battery current or voltage.
-        res += inv.getCurrentOutputAcWatts();
+        res += upInv->getCurrentOutputAcWatts();
     }
 
     return res;
@@ -810,8 +809,8 @@ bool PowerLimiterClass::isFullSolarPassthroughActive()
 
 bool PowerLimiterClass::usesBatteryPoweredInverter()
 {
-    for (auto const& inv : _inverters) {
-        if (!inv.isSolarPowered()) { return true; }
+    for (auto const& upInv : _inverters) {
+        if (!upInv->isSolarPowered()) { return true; }
     }
 
     return false;
@@ -819,8 +818,8 @@ bool PowerLimiterClass::usesBatteryPoweredInverter()
 
 bool PowerLimiterClass::isManagedInverterProducing()
 {
-    for (auto const& inv : _inverters) {
-        if (inv.isProducing()) { return true; }
+    for (auto const& upInv : _inverters) {
+        if (upInv->isProducing()) { return true; }
     }
     return false;
 }

@@ -71,7 +71,7 @@ private:
     uint32_t _calculationBackoffMs = _calculationBackoffMsDefault;
     Mode _mode = Mode::Normal;
 
-    std::deque<PowerLimiterInverter> _inverters;
+    std::deque<std::unique_ptr<PowerLimiterInverter>> _inverters;
     bool _batteryDischargeEnabled = false;
     bool _nighttimeDischarging = false;
     uint32_t _nextInverterRestart = 0; // Values: 0->not calculated / 1->no restart configured / >1->time of next inverter restart in millis()

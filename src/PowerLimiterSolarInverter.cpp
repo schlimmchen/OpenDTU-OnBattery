@@ -1,0 +1,223 @@
+#include "MessageOutput.h"
+#include "PowerLimiterSolarInverter.h"
+#include "inverters/HMS_4CH.h"
+
+PowerLimiterSolarInverter::PowerLimiterSolarInverter(bool verboseLogging, PowerLimiterInverterConfig const& config)
+    : PowerLimiterInverter(verboseLogging, config) { }
+
+uint16_t PowerLimiterSolarInverter::getMaxReductionWatts(bool allowStandby) const
+{
+    if (!isProducing()) { return 0; }
+
+    if (getCurrentOutputAcWatts() <= _config.LowerPowerLimit) { return 0; }
+
+    if (allowStandby) {
+        return getCurrentOutputAcWatts();
+    }
+
+    return getCurrentOutputAcWatts() - _config.LowerPowerLimit;
+}
+
+uint16_t PowerLimiterSolarInverter::getMaxIncreaseWatts() const
+{
+    if (!isProducing()) {
+        // if a solar-powered inverter is in standby, we cannot know how much
+        // it could produce if its limit was raised, so we assume it can
+        // deliver at full power.
+        return getConfiguredMaxPowerWatts();
+    }
+
+    if (!isSolarPowered()) {
+        // this should not happen for battery-powered inverters, but we want to
+        // be robust in case something else set a limit on the inverter (or in
+        // case we did something wrong...).
+        if (getCurrentLimitWatts() > getConfiguredMaxPowerWatts()) { return 0; }
+
+        // we must not substract the current AC output here, but the current
+        // limit value, so we avoid trying to produce even more even if the
+        // inverter is already at the maximum limit value (the actual AC
+        // output may be less than the inverter's current power limit).
+        return getConfiguredMaxPowerWatts() - getCurrentLimitWatts();
+    }
+
+    // TODO(schlimmchen): left for the author of the scaling method: @AndreasBoehm
+    return std::min(getConfiguredMaxPowerWatts() - getCurrentOutputAcWatts(), 100);
+}
+
+uint16_t PowerLimiterSolarInverter::applyReduction(uint16_t reduction, bool allowStandby)
+{
+    if (reduction == 0) { return 0; }
+
+    if ((getCurrentOutputAcWatts() - _config.LowerPowerLimit) >= reduction) {
+        auto baseline = isSolarPowered() ? getCurrentOutputAcWatts() : getCurrentLimitWatts();
+        setAcOutput(baseline - reduction);
+        return reduction;
+    }
+
+    if (allowStandby) {
+        standby();
+        return std::min(reduction, getCurrentOutputAcWatts());
+    }
+
+    setAcOutput(_config.LowerPowerLimit);
+    return getCurrentOutputAcWatts() - _config.LowerPowerLimit;
+}
+
+uint16_t PowerLimiterSolarInverter::applyIncrease(uint16_t increase)
+{
+    if (increase == 0) { return 0; }
+
+    // do not wake inverter up if it would produce too much power
+    if (!isProducing() && _config.LowerPowerLimit > increase) { return 0; }
+
+    // the limit for solar-powered inverters might be scaled,
+    // so we use the current output as the baseline for those.
+    auto baseline = isSolarPowered() ? getCurrentOutputAcWatts() : getCurrentLimitWatts();
+
+    // battery-powered inverters in standby can have an arbitrary limit, yet
+    // the baseline is 0 in case we are about to wake it up from standby.
+    // for solar-powered inverters, this statement is expected to be redundant,
+    // as the output of inverters in standby should be 0 in any case.
+    if (!isProducing()) { baseline = 0; }
+
+    auto actualIncrease = std::min(increase, getMaxIncreaseWatts());
+    setAcOutput(baseline + actualIncrease);
+    return actualIncrease;
+}
+
+uint16_t PowerLimiterSolarInverter::standby()
+{
+    if (isSolarPowered()) {
+        setAcOutput(_config.LowerPowerLimit);
+        return getCurrentOutputAcWatts() - _config.LowerPowerLimit;
+    }
+
+    setTargetPowerState(false);
+    setExpectedOutputAcWatts(0);
+    return getCurrentOutputAcWatts();
+}
+
+uint16_t PowerLimiterSolarInverter::scaleLimit(uint16_t expectedOutputWatts)
+{
+    if (!isSolarPowered()) { return expectedOutputWatts; }
+
+    // prevent scaling if inverter is not producing, as input channels are not
+    // producing energy and hence are detected as not-producing, causing
+    // unreasonable scaling.
+    if (!isProducing()) { return expectedOutputWatts; }
+
+    auto pStats = _spInverter->Statistics();
+    std::list<ChannelNum_t> dcChnls = pStats->getChannelsByType(TYPE_DC);
+    size_t dcTotalChnls = dcChnls.size();
+
+    // according to the upstream projects README (table with supported devs),
+    // every 2 channel inverter has 2 MPPTs. then there are the HM*S* 4 channel
+    // models which have 4 MPPTs. all others have a different number of MPPTs
+    // than inputs. those are not supported by the current scaling mechanism.
+    bool supported = dcTotalChnls == 2;
+    supported |= dcTotalChnls == 4 && HMS_4CH::isValidSerial(getSerial());
+    if (!supported) { return expectedOutputWatts; }
+
+    // test for a reasonable power limit that allows us to assume that an input
+    // channel with little energy is actually not producing, rather than
+    // producing very little due to the very low limit.
+    if (getCurrentLimitWatts() < dcTotalChnls * 10) { return expectedOutputWatts; }
+
+    // overscalling allows us to compensate for shaded panels by increasing the
+    // total power limit, if the inverter is solar powered.
+    if (_config.UseOverscalingToCompensateShading && isSolarPowered()) {
+        auto inverterOutputAC = pStats->getChannelFieldValue(TYPE_AC, CH0, FLD_PAC);
+
+        float inverterEfficiencyFactor = pStats->getChannelFieldValue(TYPE_INV, CH0, FLD_EFF);
+
+        // fall back to hoymiles peak efficiency as per datasheet if inverter
+        // is currently not producing (efficiency is zero in that case)
+        inverterEfficiencyFactor = (inverterEfficiencyFactor > 0) ? inverterEfficiencyFactor/100 : 0.967;
+
+        // 98% of the expected power is good enough
+        auto expectedAcPowerPerChannel = (getCurrentLimitWatts() / dcTotalChnls) * 0.98;
+
+        if (_verboseLogging) {
+            MessageOutput.printf("%s expected AC power per channel %f W\r\n",
+                    _logPrefix, expectedAcPowerPerChannel);
+        }
+
+        size_t dcShadedChnls = 0;
+        auto shadedChannelACPowerSum = 0.0;
+
+        for (auto& c : dcChnls) {
+            auto channelPowerAC = pStats->getChannelFieldValue(TYPE_DC, c, FLD_PDC) * inverterEfficiencyFactor;
+
+            if (channelPowerAC < expectedAcPowerPerChannel) {
+                dcShadedChnls++;
+                shadedChannelACPowerSum += channelPowerAC;
+            }
+
+            if (_verboseLogging) {
+                MessageOutput.printf("%s ch %d AC power %f W\r\n",
+                        _logPrefix, c, channelPowerAC);
+            }
+        }
+
+        // no shading or the shaded channels provide more power than what
+        // we currently need.
+        if (dcShadedChnls == 0 || shadedChannelACPowerSum >= expectedOutputWatts) {
+            return expectedOutputWatts;
+        }
+
+        if (dcShadedChnls == dcTotalChnls) {
+            // keep the currentLimit when:
+            // - all channels are shaded
+            // - currentLimit >= expectedOutputWatts
+            // - we get the expected AC power or less and
+            if (getCurrentLimitWatts() >= expectedOutputWatts &&
+                    inverterOutputAC <= expectedOutputWatts) {
+                if (_verboseLogging) {
+                    MessageOutput.printf("%s all channels are shaded, "
+                            "keeping the current limit of %d W\r\n",
+                            _logPrefix, getCurrentLimitWatts());
+                }
+
+                return getCurrentLimitWatts();
+
+            } else {
+                return expectedOutputWatts;
+            }
+        }
+
+        size_t dcNonShadedChnls = dcTotalChnls - dcShadedChnls;
+        uint16_t overScaledLimit = (expectedOutputWatts - shadedChannelACPowerSum) / dcNonShadedChnls * dcTotalChnls;
+
+        if (overScaledLimit <= expectedOutputWatts) { return expectedOutputWatts; }
+
+        if (_verboseLogging) {
+            MessageOutput.printf("%s %d/%d channels are shaded, scaling %d W\r\n",
+                    _logPrefix, dcShadedChnls, dcTotalChnls, overScaledLimit);
+        }
+
+        return overScaledLimit;
+    }
+
+    size_t dcProdChnls = 0;
+    for (auto& c : dcChnls) {
+        if (pStats->getChannelFieldValue(TYPE_DC, c, FLD_PDC) > 2.0) {
+            dcProdChnls++;
+        }
+    }
+
+    if (dcProdChnls == 0 || dcProdChnls == dcTotalChnls) { return expectedOutputWatts; }
+
+    uint16_t scaled = expectedOutputWatts / dcProdChnls * dcTotalChnls;
+    MessageOutput.printf("%s %d/%d channels are producing, scaling from %d to "
+            "%d W\r\n", _logPrefix, dcProdChnls, dcTotalChnls,
+            expectedOutputWatts, scaled);
+
+    return scaled;
+}
+
+void PowerLimiterSolarInverter::setAcOutput(uint16_t expectedOutputWatts)
+{
+    setExpectedOutputAcWatts(expectedOutputWatts);
+    setTargetPowerLimitWatts(scaleLimit(expectedOutputWatts));
+    setTargetPowerState(true);
+}
