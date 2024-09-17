@@ -27,19 +27,6 @@ uint16_t PowerLimiterSolarInverter::getMaxIncreaseWatts() const
         return getConfiguredMaxPowerWatts();
     }
 
-    if (!isSolarPowered()) {
-        // this should not happen for battery-powered inverters, but we want to
-        // be robust in case something else set a limit on the inverter (or in
-        // case we did something wrong...).
-        if (getCurrentLimitWatts() > getConfiguredMaxPowerWatts()) { return 0; }
-
-        // we must not substract the current AC output here, but the current
-        // limit value, so we avoid trying to produce even more even if the
-        // inverter is already at the maximum limit value (the actual AC
-        // output may be less than the inverter's current power limit).
-        return getConfiguredMaxPowerWatts() - getCurrentLimitWatts();
-    }
-
     // TODO(schlimmchen): left for the author of the scaling method: @AndreasBoehm
     return std::min(getConfiguredMaxPowerWatts() - getCurrentOutputAcWatts(), 100);
 }
@@ -49,8 +36,7 @@ uint16_t PowerLimiterSolarInverter::applyReduction(uint16_t reduction, bool allo
     if (reduction == 0) { return 0; }
 
     if ((getCurrentOutputAcWatts() - _config.LowerPowerLimit) >= reduction) {
-        auto baseline = isSolarPowered() ? getCurrentOutputAcWatts() : getCurrentLimitWatts();
-        setAcOutput(baseline - reduction);
+        setAcOutput(getCurrentOutputAcWatts() - reduction);
         return reduction;
     }
 
@@ -70,15 +56,10 @@ uint16_t PowerLimiterSolarInverter::applyIncrease(uint16_t increase)
     // do not wake inverter up if it would produce too much power
     if (!isProducing() && _config.LowerPowerLimit > increase) { return 0; }
 
-    // the limit for solar-powered inverters might be scaled,
-    // so we use the current output as the baseline for those.
-    auto baseline = isSolarPowered() ? getCurrentOutputAcWatts() : getCurrentLimitWatts();
-
-    // battery-powered inverters in standby can have an arbitrary limit, yet
-    // the baseline is 0 in case we are about to wake it up from standby.
-    // for solar-powered inverters, this statement is expected to be redundant,
-    // as the output of inverters in standby should be 0 in any case.
-    if (!isProducing()) { baseline = 0; }
+    // the limit for solar-powered inverters might be scaled, so we use the
+    // current output as the baseline. solar-powered inverters in standby have
+    // no output (baseline is zero).
+    auto baseline = getCurrentOutputAcWatts();
 
     auto actualIncrease = std::min(increase, getMaxIncreaseWatts());
     setAcOutput(baseline + actualIncrease);
@@ -87,20 +68,12 @@ uint16_t PowerLimiterSolarInverter::applyIncrease(uint16_t increase)
 
 uint16_t PowerLimiterSolarInverter::standby()
 {
-    if (isSolarPowered()) {
-        setAcOutput(_config.LowerPowerLimit);
-        return getCurrentOutputAcWatts() - _config.LowerPowerLimit;
-    }
-
-    setTargetPowerState(false);
-    setExpectedOutputAcWatts(0);
-    return getCurrentOutputAcWatts();
+    setAcOutput(_config.LowerPowerLimit);
+    return getCurrentOutputAcWatts() - _config.LowerPowerLimit;
 }
 
 uint16_t PowerLimiterSolarInverter::scaleLimit(uint16_t expectedOutputWatts)
 {
-    if (!isSolarPowered()) { return expectedOutputWatts; }
-
     // prevent scaling if inverter is not producing, as input channels are not
     // producing energy and hence are detected as not-producing, causing
     // unreasonable scaling.
@@ -125,7 +98,7 @@ uint16_t PowerLimiterSolarInverter::scaleLimit(uint16_t expectedOutputWatts)
 
     // overscalling allows us to compensate for shaded panels by increasing the
     // total power limit, if the inverter is solar powered.
-    if (_config.UseOverscalingToCompensateShading && isSolarPowered()) {
+    if (_config.UseOverscalingToCompensateShading) {
         auto inverterOutputAC = pStats->getChannelFieldValue(TYPE_AC, CH0, FLD_PAC);
 
         float inverterEfficiencyFactor = pStats->getChannelFieldValue(TYPE_INV, CH0, FLD_EFF);
