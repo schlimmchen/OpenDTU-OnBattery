@@ -91,6 +91,10 @@ uint16_t PowerLimiterBatteryInverter::standby()
 
 void PowerLimiterBatteryInverter::setAcOutput(uint16_t expectedOutputWatts)
 {
+    // make sure to enforce the lower and upper bounds
+    expectedOutputWatts = std::min(expectedOutputWatts, getConfiguredMaxPowerWatts());
+    expectedOutputWatts = std::max(expectedOutputWatts, _config.LowerPowerLimit);
+
     setExpectedOutputAcWatts(expectedOutputWatts);
     setTargetPowerLimitWatts(expectedOutputWatts);
     setTargetPowerState(true);
