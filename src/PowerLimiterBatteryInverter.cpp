@@ -7,11 +7,9 @@ uint16_t PowerLimiterBatteryInverter::getMaxReductionWatts(bool allowStandby) co
 {
     if (!isProducing()) { return 0; }
 
-    if (getCurrentOutputAcWatts() <= _config.LowerPowerLimit) { return 0; }
+    if (allowStandby) { return getCurrentOutputAcWatts(); }
 
-    if (allowStandby) {
-        return getCurrentOutputAcWatts();
-    }
+    if (getCurrentOutputAcWatts() <= _config.LowerPowerLimit) { return 0; }
 
     return getCurrentOutputAcWatts() - _config.LowerPowerLimit;
 }
@@ -25,7 +23,7 @@ uint16_t PowerLimiterBatteryInverter::getMaxIncreaseWatts() const
     // this should not happen for battery-powered inverters, but we want to
     // be robust in case something else set a limit on the inverter (or in
     // case we did something wrong...).
-    if (getCurrentLimitWatts() > getConfiguredMaxPowerWatts()) { return 0; }
+    if (getCurrentLimitWatts() >= getConfiguredMaxPowerWatts()) { return 0; }
 
     // we must not substract the current AC output here, but the current
     // limit value, so we avoid trying to produce even more even if the

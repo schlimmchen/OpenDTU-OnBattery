@@ -5,44 +5,27 @@
 PowerLimiterSolarInverter::PowerLimiterSolarInverter(bool verboseLogging, PowerLimiterInverterConfig const& config)
     : PowerLimiterInverter(verboseLogging, config) { }
 
-uint16_t PowerLimiterSolarInverter::getMaxReductionWatts(bool allowStandby) const
+uint16_t PowerLimiterSolarInverter::getMaxReductionWatts(bool) const
 {
-    if (!isProducing()) { return 0; }
-
-    if (getCurrentOutputAcWatts() <= _config.LowerPowerLimit) { return 0; }
-
-    if (allowStandby) {
-        return getCurrentOutputAcWatts();
-    }
+    auto low = std::min(getCurrentLimitWatts(), getCurrentOutputAcWatts());
+    if (low <= _config.LowerPowerLimit) { return 0; }
 
     return getCurrentOutputAcWatts() - _config.LowerPowerLimit;
 }
 
 uint16_t PowerLimiterSolarInverter::getMaxIncreaseWatts() const
 {
-    if (!isProducing()) {
-        // if a solar-powered inverter is in standby, we cannot know how much
-        // it could produce if its limit was raised, so we assume it can
-        // deliver at full power.
-        return getConfiguredMaxPowerWatts();
-    }
-
     // TODO(schlimmchen): left for the author of the scaling method: @AndreasBoehm
     return std::min(getConfiguredMaxPowerWatts() - getCurrentOutputAcWatts(), 100);
 }
 
-uint16_t PowerLimiterSolarInverter::applyReduction(uint16_t reduction, bool allowStandby)
+uint16_t PowerLimiterSolarInverter::applyReduction(uint16_t reduction, bool)
 {
     if (reduction == 0) { return 0; }
 
     if ((getCurrentOutputAcWatts() - _config.LowerPowerLimit) >= reduction) {
         setAcOutput(getCurrentOutputAcWatts() - reduction);
         return reduction;
-    }
-
-    if (allowStandby) {
-        standby();
-        return std::min(reduction, getCurrentOutputAcWatts());
     }
 
     setAcOutput(_config.LowerPowerLimit);
@@ -68,6 +51,8 @@ uint16_t PowerLimiterSolarInverter::applyIncrease(uint16_t increase)
 
 uint16_t PowerLimiterSolarInverter::standby()
 {
+    // solar-powered inverters are never actually put into standby (by the
+    // DPL), but only set to the configured lower power limit instead.
     setAcOutput(_config.LowerPowerLimit);
     return getCurrentOutputAcWatts() - _config.LowerPowerLimit;
 }
