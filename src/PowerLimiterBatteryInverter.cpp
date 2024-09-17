@@ -36,7 +36,21 @@ uint16_t PowerLimiterBatteryInverter::applyReduction(uint16_t reduction, bool al
 {
     if (reduction == 0) { return 0; }
 
+    auto low = std::min(getCurrentLimitWatts(), getCurrentOutputAcWatts());
+    if (low <= _config.LowerPowerLimit) {
+        if (allowStandby) {
+            standby();
+            return std::min(reduction, getCurrentOutputAcWatts());
+        }
+        return 0;
+    }
+
     if ((getCurrentOutputAcWatts() - _config.LowerPowerLimit) >= reduction) {
+        // TODO(schlimmchen): we are switching between AC output and limit
+        // values here. we want to subtract from the current limit, because
+        // we have the best chance to implement the respective diff if we
+        // chose the new limit relative to the old one, in case the inverter is
+        // not producing as much as the limit allows.
         setAcOutput(getCurrentLimitWatts() - reduction);
         return reduction;
     }
