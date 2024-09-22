@@ -64,7 +64,7 @@
                     placeholder="200"
                     postfix="W"
                     type="number"
-                    min=0
+                    min="0"
                     wide
                 />
 
@@ -75,7 +75,7 @@
                     v-model="powerLimiterConfigList.target_power_consumption_hysteresis"
                     postfix="W"
                     type="number"
-                    min=1
+                    min="1"
                     wide
                 />
 
@@ -86,7 +86,7 @@
                     v-model="powerLimiterConfigList.total_upper_power_limit"
                     postfix="W"
                     type="number"
-                    min=1
+                    min="1"
                     wide
                 />
             </CardElement>
@@ -539,7 +539,7 @@ export default defineComponent({
             alertType: 'info',
             showAlert: false,
             configAlert: false,
-            additionalInverterSerial: "",
+            additionalInverterSerial: '',
             modalEdit: {} as bootstrap.Modal,
             modalDelete: {} as bootstrap.Modal,
             editInverter: {} as PowerLimiterInverterConfig,
@@ -554,14 +554,20 @@ export default defineComponent({
     },
     watch: {
         unmanagedInverters(newInverters) {
-            if (newInverters.includes(this.additionalInverterSerial)) { return; }
-            this.additionalInverterSerial = newInverters.length > 0 ? newInverters[0] : "";
+            if (newInverters.includes(this.additionalInverterSerial)) {
+                return;
+            }
+            this.additionalInverterSerial = newInverters.length > 0 ? newInverters[0] : '';
         },
         'powerLimiterConfigList.inverter_serial_for_dc_voltage'(newValue) {
-            if (newValue === '') { return; } // do no inspect placeholder value
+            if (newValue === '') {
+                return; // do no inspect placeholder value
+            }
 
             const managedInverters = this.powerLimiterConfigList.inverters;
-            if (!managedInverters) { return []; }
+            if (!managedInverters) {
+                return [];
+            }
 
             const managedSerials = managedInverters.map((inverter) => inverter.serial);
             if (!managedSerials.includes(newValue)) {
@@ -573,7 +579,9 @@ export default defineComponent({
     computed: {
         unmanagedInverters() {
             const managedInverters = this.powerLimiterConfigList.inverters;
-            if (!managedInverters) { return []; }
+            if (!managedInverters) {
+                return [];
+            }
 
             const managedSerials = managedInverters.map((inverter) => inverter.serial);
             const res = Object.keys(this.powerLimiterMetaData.inverters).filter(
@@ -602,7 +610,9 @@ export default defineComponent({
                 for (const managedInv of Object.values(managedInverters)) {
                     const metaInverters = this.powerLimiterMetaData.inverters;
                     const inv = metaInverters[managedInv.serial];
-                    if (!inv) { continue; }
+                    if (!inv) {
+                        continue;
+                    }
                     if (
                         inv !== undefined &&
                         !(inv.poll_enable && inv.command_enable && inv.poll_enable_night && inv.command_enable_night)
