@@ -273,7 +273,7 @@ void PowerLimiterInverter::debug() const
 {
     if (!_verboseLogging) { return; }
 
-    MessageOutput.printf("%s debug info:\r\n", _logPrefix);
+    MessageOutput.printf("%s\r\n", _logPrefix);
     MessageOutput.printf("    solar powered: %s\r\n", (isSolarPowered()?"yes":"no"));
     MessageOutput.printf("    output capability: %d W\r\n", getInverterMaxPowerWatts());
     MessageOutput.printf("    upper power limit: %d W\r\n", _config.UpperPowerLimit);
@@ -283,12 +283,12 @@ void PowerLimiterInverter::debug() const
     MessageOutput.printf("    current limit: %d W\r\n", getCurrentLimitWatts());
     MessageOutput.printf("    max reduction: %d W (online), %d W (standby)\r\n", getMaxReductionWatts(false), getMaxReductionWatts(true));
     MessageOutput.printf("    max increase: %d W\r\n", getMaxIncreaseWatts());
-    if (_oTargetPowerLimitWatts) {
-        MessageOutput.printf("    target limit: %d\r\n", *_oTargetPowerLimitWatts);
-    }
     if (_oTargetPowerState) {
         MessageOutput.printf("    target state: %s\r\n", (*_oTargetPowerState?"producing":"standby"));
     }
-    MessageOutput.printf("    expected (new) output: %d\r\n", getExpectedOutputAcWatts());
+    if (_oTargetPowerLimitWatts) {
+        MessageOutput.printf("    target limit: %d W\r\n", *_oTargetPowerLimitWatts);
+    }
+    MessageOutput.printf("    expected (new) output: %d W\r\n", getExpectedOutputAcWatts());
     MessageOutput.printf("    update timeouts: %d\r\n", getUpdateTimeouts());
 }
