@@ -331,6 +331,25 @@ void PowerLimiterClass::loop()
     _calculationBackoffMs = _calculationBackoffMsDefault;
 }
 
+std::pair<float, char const*> PowerLimiterClass::getInverterDcVoltage() {
+    auto const& config = Configuration.get();
+
+    auto iter = _inverters.begin();
+    while(iter != _inverters.end()) {
+        if ((*iter)->getSerial() == config.PowerLimiter.InverterSerialForDcVoltage) {
+            break;
+        }
+        ++iter;
+    }
+
+    if (iter == _inverters.end()) {
+        return { -1.0, "<unknown>" };
+    }
+
+    auto voltage = (*iter)->getDcVoltage(config.PowerLimiter.InverterChannelIdForDcVoltage);
+    return { voltage, (*iter)->getSerialStr() };
+}
+
 /**
  * determines the battery's voltage, trying multiple data providers. the most
  * accurate data is expected to be delivered by a BMS, if it's available. more
@@ -343,19 +362,8 @@ float PowerLimiterClass::getBatteryVoltage(bool log) {
 
     float res = 0;
 
-    char const* inverterSerial = "<unknown>";
-    float inverterVoltage = -1;
-    auto iter = _inverters.begin();
-    while(iter != _inverters.end()) {
-        if ((*iter)->getSerial() == config.PowerLimiter.InverterSerialForDcVoltage) {
-            break;
-        }
-        ++iter;
-    }
-    if (iter != _inverters.end()) {
-        inverterSerial = (*iter)->getSerialStr();
-        res = inverterVoltage = (*iter)->getDcVoltage(config.PowerLimiter.InverterChannelIdForDcVoltage);
-    }
+    auto inverter = getInverterDcVoltage();
+    if (inverter.first > 0) { res = inverter.first; }
 
     float chargeControllerVoltage = -1;
     if (VictronMppt.isDataValid()) {
@@ -373,7 +381,7 @@ float PowerLimiterClass::getBatteryVoltage(bool log) {
     if (log) {
         MessageOutput.printf("[DPL::getBatteryVoltage] BMS: %.2f V, MPPT: %.2f V, "
                 "inverter %s: %.2f V, returning: %.2fV\r\n", bmsVoltage,
-                chargeControllerVoltage, inverterSerial, inverterVoltage, res);
+                chargeControllerVoltage, inverter.second, inverter.first, res);
     }
 
     return res;
@@ -618,19 +626,26 @@ uint16_t PowerLimiterClass::calcBatteryAllowance(uint16_t powerRequested)
         return 0;
     }
 
-    if (_batteryDischargeEnabled) { return powerRequested; }
+    auto oBatteryPowerDc = getBatteryDischargeLimit();
+    if (!oBatteryPowerDc.has_value()) { return powerRequested; }
 
-    // do not drain the battery. use as much power as needed to match
-    // the request, but no more than the available solar passthrough power.
+    auto batteryPowerAC = solarDcToInverterAc(*oBatteryPowerDc);
     auto solarPowerAC = solarDcToInverterAc(getSolarPassthroughPower());
-    auto res = std::min(powerRequested, solarPowerAC);
 
-    if (_verboseLogging) {
-        MessageOutput.printf("[DPL::calcBatteryAllowance] limited to "
-                "solar power: %d W\r\n", res);
+    if (powerRequested > batteryPowerAC + solarPowerAC) {
+        // respect battery-provided discharge power limit
+        auto res = batteryPowerAC + solarPowerAC;
+
+        if (_verboseLogging) {
+            MessageOutput.printf("[DPL::calcBatteryAllowance] limited by "
+                    "battery (%d W) and/or solar power (%d W): %d W\r\n",
+                    batteryPowerAC, solarPowerAC, res);
+        }
+
+        return res;
     }
 
-    return res;
+    return powerRequested;
 }
 
 bool PowerLimiterClass::updateInverters()
@@ -670,6 +685,28 @@ float PowerLimiterClass::getBatteryInvertersOutputAcWatts()
     }
 
     return res;
+}
+
+std::optional<uint16_t> PowerLimiterClass::getBatteryDischargeLimit()
+{
+    if (!_batteryDischargeEnabled) { return 0; }
+
+    auto currentLimit = Battery.getDischargeCurrentLimit();
+    if (currentLimit == FLT_MAX) { return std::nullopt; }
+
+    if (currentLimit <= 0) { currentLimit = -currentLimit; }
+
+    // this uses inverter voltage since there is a voltage drop between
+    // battery and inverter, so since we are regulating the inverter
+    // power we should use its voltage.
+    auto inverter = getInverterDcVoltage();
+    if (inverter.first <= 0) {
+        MessageOutput.println("[DPL::getBatteryDischargeLimit]: could not "
+                "determine inverter voltage");
+        return 0;
+    }
+
+    return inverter.first * currentLimit;
 }
 
 float PowerLimiterClass::getLoadCorrectedVoltage()

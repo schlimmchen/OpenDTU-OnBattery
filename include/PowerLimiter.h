@@ -82,6 +82,7 @@ private:
     frozen::string const& getStatusText(Status status);
     void announceStatus(Status status);
     bool shutdown(Status status);
+    std::pair<float, char const*> getInverterDcVoltage();
     float getBatteryVoltage(bool log = false);
     uint16_t solarDcToInverterAc(uint16_t dcPower);
     void fullSolarPassthrough(PowerLimiterClass::Status reason);
@@ -91,6 +92,7 @@ private:
     uint16_t calcBatteryAllowance(uint16_t powerRequested);
     bool updateInverters();
     uint16_t getSolarPassthroughPower();
+    std::optional<uint16_t> getBatteryDischargeLimit();
     float getBatteryInvertersOutputAcWatts();
     float getLoadCorrectedVoltage();
     bool testThreshold(float socThreshold, float voltThreshold,
