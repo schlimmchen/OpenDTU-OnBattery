@@ -5,6 +5,8 @@ PowerLimiterBatteryInverter::PowerLimiterBatteryInverter(bool verboseLogging, Po
 
 uint16_t PowerLimiterBatteryInverter::getMaxReductionWatts(bool allowStandby) const
 {
+    if (!isReachable() || !isSendingCommandsEnabled()) { return 0; }
+
     if (!isProducing()) { return 0; }
 
     if (allowStandby) { return getCurrentOutputAcWatts(); }
@@ -16,6 +18,8 @@ uint16_t PowerLimiterBatteryInverter::getMaxReductionWatts(bool allowStandby) co
 
 uint16_t PowerLimiterBatteryInverter::getMaxIncreaseWatts() const
 {
+    if (!isReachable() || !isSendingCommandsEnabled()) { return 0; }
+
     if (!isProducing()) {
         return getConfiguredMaxPowerWatts();
     }
@@ -34,6 +38,8 @@ uint16_t PowerLimiterBatteryInverter::getMaxIncreaseWatts() const
 
 uint16_t PowerLimiterBatteryInverter::applyReduction(uint16_t reduction, bool allowStandby)
 {
+    if (!isReachable() || !isSendingCommandsEnabled()) { return 0; }
+
     if (reduction == 0) { return 0; }
 
     auto low = std::min(getCurrentLimitWatts(), getCurrentOutputAcWatts());
@@ -66,6 +72,8 @@ uint16_t PowerLimiterBatteryInverter::applyReduction(uint16_t reduction, bool al
 
 uint16_t PowerLimiterBatteryInverter::applyIncrease(uint16_t increase)
 {
+    if (!isReachable() || !isSendingCommandsEnabled()) { return 0; }
+
     if (increase == 0) { return 0; }
 
     // do not wake inverter up if it would produce too much power

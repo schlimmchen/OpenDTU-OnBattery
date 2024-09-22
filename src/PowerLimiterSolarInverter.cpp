@@ -7,6 +7,8 @@ PowerLimiterSolarInverter::PowerLimiterSolarInverter(bool verboseLogging, PowerL
 
 uint16_t PowerLimiterSolarInverter::getMaxReductionWatts(bool) const
 {
+    if (!isReachable() || !isSendingCommandsEnabled()) { return 0; }
+
     auto low = std::min(getCurrentLimitWatts(), getCurrentOutputAcWatts());
     if (low <= _config.LowerPowerLimit) { return 0; }
 
@@ -15,12 +17,16 @@ uint16_t PowerLimiterSolarInverter::getMaxReductionWatts(bool) const
 
 uint16_t PowerLimiterSolarInverter::getMaxIncreaseWatts() const
 {
+    if (!isReachable() || !isSendingCommandsEnabled()) { return 0; }
+
     // TODO(schlimmchen): left for the author of the scaling method: @AndreasBoehm
     return std::min(getConfiguredMaxPowerWatts() - getCurrentOutputAcWatts(), 100);
 }
 
 uint16_t PowerLimiterSolarInverter::applyReduction(uint16_t reduction, bool)
 {
+    if (!isReachable() || !isSendingCommandsEnabled()) { return 0; }
+
     if (reduction == 0) { return 0; }
 
     if ((getCurrentOutputAcWatts() - _config.LowerPowerLimit) >= reduction) {
@@ -34,6 +40,8 @@ uint16_t PowerLimiterSolarInverter::applyReduction(uint16_t reduction, bool)
 
 uint16_t PowerLimiterSolarInverter::applyIncrease(uint16_t increase)
 {
+    if (!isReachable() || !isSendingCommandsEnabled()) { return 0; }
+
     if (increase == 0) { return 0; }
 
     // do not wake inverter up if it would produce too much power
