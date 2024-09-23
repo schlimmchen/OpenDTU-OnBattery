@@ -1,4 +1,4 @@
-#include "Utils.h"
+#include "RestartHelper.h"
 #include "MessageOutput.h"
 #include "PowerLimiterInverter.h"
 #include "PowerLimiterBatteryInverter.h"
@@ -88,7 +88,7 @@ bool PowerLimiterInverter::update()
         if (_updateTimeouts >= 20) {
             MessageOutput.printf("%s restarting system since inverter is "
                     "unresponsive\r\n", _logPrefix);
-            Utils::restartDtu();
+            RestartHelper.triggerRestart();
         }
 
         return reset();
