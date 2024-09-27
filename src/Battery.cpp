@@ -8,6 +8,8 @@
 #include "MqttBattery.h"
 #include "PytesCanReceiver.h"
 
+// this will trigger GitHub actions
+
 BatteryClass Battery;
 
 std::shared_ptr<BatteryStats const> BatteryClass::getStats() const
