@@ -75,6 +75,10 @@ public:
 protected:
     PowerLimiterInverter(bool verboseLogging, PowerLimiterInverterConfig const& config);
 
+    // returns false if the inverter cannot participate
+    // in achieving the requested change in power output
+    bool isEligible() const;
+
     uint16_t getCurrentLimitWatts() const;
 
     void setTargetPowerLimitWatts(uint16_t power) { _oTargetPowerLimitWatts = power; }
@@ -91,8 +95,6 @@ protected:
     char _logPrefix[32];
 
 private:
-    bool isValid() const;
-
     virtual void setAcOutput(uint16_t expectedOutputWatts) = 0;
 
     char _serialStr[16];

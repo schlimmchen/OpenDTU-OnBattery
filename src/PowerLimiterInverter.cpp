@@ -17,7 +17,8 @@ std::unique_ptr<PowerLimiterInverter> PowerLimiterInverter::create(
         upInverter = std::make_unique<PowerLimiterBatteryInverter>(verboseLogging, config);
     }
 
-    if (!upInverter->isValid()) { return nullptr; }
+    if (nullptr == upInverter->_spInverter) { return nullptr; }
+
     return std::move(upInverter);
 }
 
@@ -35,13 +36,13 @@ PowerLimiterInverter::PowerLimiterInverter(bool verboseLogging, PowerLimiterInve
     snprintf(_logPrefix, sizeof(_logPrefix), "[DPL inverter %s]:", _serialStr);
 }
 
-bool PowerLimiterInverter::isValid() const
+bool PowerLimiterInverter::isEligible() const
 {
-    if (!_spInverter) { return false; }
+    if (!isReachable() || !isSendingCommandsEnabled()) { return false; }
 
     // the model-dependent maximum AC power output is only known after the
     // first DevInfoSimpleCommand succeeded. we desperately need this info, so
-    // the inverter is deemed invalid until we have this info.
+    // the inverter is not eligible until this value is known.
     if (getInverterMaxPowerWatts() == 0) { return false; }
 
     return true;
