@@ -302,6 +302,9 @@ void PowerLimiterClass::loop()
 
     uint16_t inverterTotalPower = (consumption > 0) ? static_cast<uint16_t>(consumption) : 0;
 
+    auto totalAllowance = config.PowerLimiter.TotalUpperPowerLimit;
+    inverterTotalPower = std::min(inverterTotalPower, totalAllowance);
+
     auto coveredBySolar = updateInverterLimits(inverterTotalPower, sSolarPoweredFilter, sSolarPoweredExpression);
     auto remaining = (inverterTotalPower >= coveredBySolar) ? inverterTotalPower - coveredBySolar : 0;
     auto batteryAllowance = calcBatteryAllowance(remaining);
@@ -309,11 +312,11 @@ void PowerLimiterClass::loop()
 
     if (_verboseLogging) {
         MessageOutput.printf("[DPL::loop] consumption: %d W, "
-                "total inverter target output: %u W, "
+                "target output: %u W (limited to %d W), "
                 "solar inverters output: %u W, battery allowance: "
                 "%u W, battery inverters output: %u W\r\n",
-                consumption, inverterTotalPower, coveredBySolar,
-                batteryAllowance, coveredByBattery);
+                consumption, inverterTotalPower, totalAllowance,
+                coveredBySolar, batteryAllowance, coveredByBattery);
     }
 
     _lastExpectedInverterOutput = coveredBySolar + coveredByBattery;
