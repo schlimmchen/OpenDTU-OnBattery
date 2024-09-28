@@ -40,6 +40,12 @@ bool PowerLimiterInverter::isEligible() const
 {
     if (!isReachable() || !isSendingCommandsEnabled()) { return false; }
 
+    // after startup, the limit effective at the inverter is not known. the
+    // respective message to request this info is only sent after a significant
+    // backoff (4 minutes). this is to avoid error messages to appear in the
+    // inverter's event log. we will wait until the current limit is known.
+    if (getCurrentLimitWatts() == 0) { return false; }
+
     // the model-dependent maximum AC power output is only known after the
     // first DevInfoSimpleCommand succeeded. we desperately need this info, so
     // the inverter is not eligible until this value is known.
