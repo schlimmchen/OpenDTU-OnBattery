@@ -274,22 +274,26 @@ void PowerLimiterInverter::debug() const
 {
     if (!_verboseLogging) { return; }
 
-    MessageOutput.printf("%s\r\n", _logPrefix);
-    MessageOutput.printf("    solar powered: %s\r\n", (isSolarPowered()?"yes":"no"));
-    MessageOutput.printf("    output capability: %d W\r\n", getInverterMaxPowerWatts());
-    MessageOutput.printf("    upper power limit: %d W\r\n", _config.UpperPowerLimit);
-    MessageOutput.printf("    lower power limit: %d W\r\n", _config.LowerPowerLimit);
-    MessageOutput.printf("    producing: %s\r\n", (isProducing()?"yes":"no"));
-    MessageOutput.printf("    current output: %d W\r\n", getCurrentOutputAcWatts());
-    MessageOutput.printf("    current limit: %d W\r\n", getCurrentLimitWatts());
-    MessageOutput.printf("    max reduction: %d W (online), %d W (standby)\r\n", getMaxReductionWatts(false), getMaxReductionWatts(true));
-    MessageOutput.printf("    max increase: %d W\r\n", getMaxIncreaseWatts());
-    if (_oTargetPowerState) {
-        MessageOutput.printf("    target state: %s\r\n", (*_oTargetPowerState?"producing":"standby"));
-    }
-    if (_oTargetPowerLimitWatts) {
-        MessageOutput.printf("    target limit: %d W\r\n", *_oTargetPowerLimitWatts);
-    }
-    MessageOutput.printf("    expected (new) output: %d W\r\n", getExpectedOutputAcWatts());
-    MessageOutput.printf("    update timeouts: %d\r\n", getUpdateTimeouts());
+    MessageOutput.printf(
+        "%s\r\n"
+        "    %s-powered, %s %d W\r\n"
+        "    lower/current/upper limit: %d/%d/%d W, output capability: %d W\r\n"
+        "    sending commands %s, %s, %s\r\n"
+        "    max reduction production/standby: %d/%d W, max increase: %d W\r\n"
+        "    target limit/output/state: %i W (%s)/%d W/%s, %d update timeouts\r\n",
+        _logPrefix,
+        (isSolarPowered()?"solar":"battery"),
+        (isProducing()?"producing":"standing by at"), getCurrentOutputAcWatts(),
+        _config.LowerPowerLimit, getCurrentLimitWatts(), _config.UpperPowerLimit,
+        getInverterMaxPowerWatts(),
+        (isSendingCommandsEnabled()?"enabled":"disabled"),
+        (isReachable()?"reachable":"offline"),
+        (isEligible()?"eligible":"disqualified"),
+        getMaxReductionWatts(false), getMaxReductionWatts(true), getMaxIncreaseWatts(),
+        (_oTargetPowerLimitWatts.has_value()?*_oTargetPowerLimitWatts:-1),
+        (_oTargetPowerLimitWatts.has_value()?"update":"unchanged"),
+        getExpectedOutputAcWatts(),
+        (_oTargetPowerState.has_value()?(*_oTargetPowerState?"production":"standby"):"unchanged"),
+        getUpdateTimeouts()
+    );
 }
