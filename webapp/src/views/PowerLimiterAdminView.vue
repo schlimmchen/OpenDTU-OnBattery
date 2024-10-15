@@ -708,12 +708,13 @@ export default defineComponent({
             return inverter.channels > 1;
         },
         addInverter() {
-            this.editInverter = {} as PowerLimiterInverterConfig;
-            this.editInverter.is_behind_power_meter = true;
-            this.editInverter.serial = this.additionalInverterSerial;
-            this.editStart(this.editInverter);
+            const newInverter = {} as PowerLimiterInverterConfig;
+            newInverter.is_behind_power_meter = true;
+            newInverter.serial = this.additionalInverterSerial;
+            this.editStart(newInverter);
         },
         editStart(inverter: PowerLimiterInverterConfig) {
+            this.editInverter = {} as PowerLimiterInverterConfig;
             Object.assign(this.editInverter, inverter);
             this.modalEdit.show();
         },
