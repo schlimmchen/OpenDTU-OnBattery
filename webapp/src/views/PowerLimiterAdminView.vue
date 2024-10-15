@@ -418,16 +418,20 @@
 
     <ModalDialog
         modalId="inverterEdit"
-        :title="$t('powerlimiteradmin.EditInverter')"
+        :title="
+            unmanagedInverters.includes(editInverter.serial)
+                ? $t('powerlimiteradmin.AddInverter')
+                : $t('powerlimiteradmin.EditInverter')
+        "
         :closeText="$t('powerlimiteradmin.Cancel')"
     >
-        <div class="mb-3">
-            {{
-                $t('powerlimiteradmin.EditInverterMsg', {
-                    serial: editInverter.serial,
-                    label: inverterLabel(editInverter.serial),
-                })
-            }}
+        <div class="row mb-3">
+            <label for="inverter_label" class="col-sm-4 col-form-label">
+                {{ $t('powerlimiteradmin.EditInverterLabel') }}
+            </label>
+            <div class="col-sm-8 col-form-label">
+                {{ inverterLabel(editInverter.serial) }}
+            </div>
         </div>
 
         <InputElement
