@@ -459,7 +459,6 @@
             wide
         />
 
-        <!-- TODO(schlimmchen): input validation, as min is not enforced by the browser when not submitting a form -->
         <InputElement
             :label="$t('powerlimiteradmin.LowerPowerLimit')"
             :tooltip="$t('powerlimiteradmin.LowerPowerLimitHint')"
@@ -469,7 +468,6 @@
             wide
         />
 
-        <!-- TODO(schlimmchen): input validation -->
         <InputElement
             :label="$t('powerlimiteradmin.UpperPowerLimit')"
             v-model="editInverter.upper_power_limit"
