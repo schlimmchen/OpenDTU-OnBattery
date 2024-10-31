@@ -30,7 +30,11 @@
         </CardElement>
 
         <form @submit="savePowerLimiterConfig" v-if="!configAlert">
-            <CardElement :text="$t('powerlimiteradmin.General')" textVariant="text-bg-primary" add-space>
+            <CardElement
+                :text="$t('powerlimiteradmin.General')"
+                textVariant="text-bg-primary"
+                :add-space="getConfigHints().length > 0"
+            >
                 <InputElement
                     :label="$t('powerlimiteradmin.Enable')"
                     v-model="powerLimiterConfigList.enabled"
@@ -38,57 +42,55 @@
                     wide
                 />
 
-                <InputElement
-                    v-show="isEnabled()"
-                    :label="$t('powerlimiteradmin.VerboseLogging')"
-                    v-model="powerLimiterConfigList.verbose_logging"
-                    type="checkbox"
-                    wide
-                />
+                <template v-if="isEnabled()">
+                    <InputElement
+                        :label="$t('powerlimiteradmin.VerboseLogging')"
+                        v-model="powerLimiterConfigList.verbose_logging"
+                        type="checkbox"
+                        wide
+                    />
 
-                <InputElement
-                    v-show="isEnabled() && hasPowerMeter()"
-                    :label="$t('powerlimiteradmin.TargetPowerConsumption')"
-                    :tooltip="$t('powerlimiteradmin.TargetPowerConsumptionHint')"
-                    v-model="powerLimiterConfigList.target_power_consumption"
-                    postfix="W"
-                    type="number"
-                    wide
-                />
+                    <InputElement
+                        v-if="hasPowerMeter()"
+                        :label="$t('powerlimiteradmin.TargetPowerConsumption')"
+                        :tooltip="$t('powerlimiteradmin.TargetPowerConsumptionHint')"
+                        v-model="powerLimiterConfigList.target_power_consumption"
+                        postfix="W"
+                        type="number"
+                        wide
+                    />
 
-                <InputElement
-                    v-show="isEnabled()"
-                    :label="$t('powerlimiteradmin.BaseLoadLimit')"
-                    :tooltip="$t('powerlimiteradmin.BaseLoadLimitHint')"
-                    v-model="powerLimiterConfigList.base_load_limit"
-                    placeholder="200"
-                    postfix="W"
-                    type="number"
-                    min="0"
-                    wide
-                />
+                    <InputElement
+                        :label="$t('powerlimiteradmin.BaseLoadLimit')"
+                        :tooltip="$t('powerlimiteradmin.BaseLoadLimitHint')"
+                        v-model="powerLimiterConfigList.base_load_limit"
+                        placeholder="200"
+                        postfix="W"
+                        type="number"
+                        min="0"
+                        wide
+                    />
 
-                <InputElement
-                    v-show="isEnabled()"
-                    :label="$t('powerlimiteradmin.TargetPowerConsumptionHysteresis')"
-                    :tooltip="$t('powerlimiteradmin.TargetPowerConsumptionHysteresisHint')"
-                    v-model="powerLimiterConfigList.target_power_consumption_hysteresis"
-                    postfix="W"
-                    type="number"
-                    min="1"
-                    wide
-                />
+                    <InputElement
+                        :label="$t('powerlimiteradmin.TargetPowerConsumptionHysteresis')"
+                        :tooltip="$t('powerlimiteradmin.TargetPowerConsumptionHysteresisHint')"
+                        v-model="powerLimiterConfigList.target_power_consumption_hysteresis"
+                        postfix="W"
+                        type="number"
+                        min="1"
+                        wide
+                    />
 
-                <InputElement
-                    v-show="isEnabled()"
-                    :label="$t('powerlimiteradmin.TotalUpperPowerLimit')"
-                    :tooltip="$t('powerlimiteradmin.TotalUpperPowerLimitHint')"
-                    v-model="powerLimiterConfigList.total_upper_power_limit"
-                    postfix="W"
-                    type="number"
-                    min="1"
-                    wide
-                />
+                    <InputElement
+                        :label="$t('powerlimiteradmin.TotalUpperPowerLimit')"
+                        :tooltip="$t('powerlimiteradmin.TotalUpperPowerLimitHint')"
+                        v-model="powerLimiterConfigList.total_upper_power_limit"
+                        postfix="W"
+                        type="number"
+                        min="1"
+                        wide
+                    />
+                </template>
             </CardElement>
 
             <CardElement
@@ -116,7 +118,7 @@
                 </div>
                 <div class="table-responsive" v-if="powerLimiterConfigList.inverters.length > 0">
                     <table class="table">
-                        <thead>
+                        <tbody>
                             <tr>
                                 <th>{{ $t('powerlimiteradmin.InverterLabel') }}</th>
                                 <th>{{ $t('powerlimiteradmin.PowerSource') }}</th>
@@ -124,8 +126,6 @@
                                 <th>{{ $t('powerlimiteradmin.UpperPowerLimit') }}</th>
                                 <th></th>
                             </tr>
-                        </thead>
-                        <tbody>
                             <tr v-for="inverter in powerLimiterConfigList.inverters" v-bind:key="inverter.serial">
                                 <td>{{ inverterLabel(inverter.serial) }}</td>
                                 <td v-if="inverter.is_solar_powered">
@@ -435,7 +435,7 @@
         </div>
 
         <InputElement
-            v-show="hasPowerMeter()"
+            v-if="hasPowerMeter()"
             :label="$t('powerlimiteradmin.InverterIsBehindPowerMeter')"
             v-model="editInverter.is_behind_power_meter"
             :tooltip="$t('powerlimiteradmin.InverterIsBehindPowerMeterHint')"
@@ -451,7 +451,7 @@
         />
 
         <InputElement
-            v-show="editInverter.is_solar_powered"
+            v-if="editInverter.is_solar_powered"
             :label="$t('powerlimiteradmin.UseOverscalingToCompensateShading')"
             :tooltip="$t('powerlimiteradmin.UseOverscalingToCompensateShadingHint')"
             v-model="editInverter.use_overscaling_to_compensate_shading"
