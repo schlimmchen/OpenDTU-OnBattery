@@ -282,68 +282,19 @@
             </CardElement>
 
             <CardElement
-                :text="$t('powerlimiteradmin.SocThresholds')"
-                textVariant="text-bg-primary"
-                add-space
-                v-if="canUseSoCThresholds()"
-            >
-                <InputElement
-                    :label="$t('powerlimiteradmin.IgnoreSoc')"
-                    v-model="powerLimiterConfigList.ignore_soc"
-                    type="checkbox"
-                    wide
-                />
-
-                <template v-if="!powerLimiterConfigList.ignore_soc">
-                    <div
-                        class="alert alert-secondary"
-                        role="alert"
-                        v-html="$t('powerlimiteradmin.BatterySocInfo')"
-                    ></div>
-
-                    <InputElement
-                        :label="$t('powerlimiteradmin.StartThreshold')"
-                        v-model="powerLimiterConfigList.battery_soc_start_threshold"
-                        placeholder="80"
-                        min="0"
-                        max="100"
-                        postfix="%"
-                        type="number"
-                        wide
-                    />
-
-                    <InputElement
-                        :label="$t('powerlimiteradmin.StopThreshold')"
-                        v-model="powerLimiterConfigList.battery_soc_stop_threshold"
-                        placeholder="20"
-                        min="0"
-                        max="100"
-                        postfix="%"
-                        type="number"
-                        wide
-                    />
-
-                    <InputElement
-                        :label="$t('powerlimiteradmin.FullSolarPassthroughStartThreshold')"
-                        :tooltip="$t('powerlimiteradmin.FullSolarPassthroughStartThresholdHint')"
-                        v-model="powerLimiterConfigList.full_solar_passthrough_soc"
-                        v-if="isSolarPassthroughEnabled()"
-                        placeholder="80"
-                        min="0"
-                        max="100"
-                        postfix="%"
-                        type="number"
-                        wide
-                    />
-                </template>
-            </CardElement>
-
-            <CardElement
                 :text="$t('powerlimiteradmin.VoltageThresholds')"
                 textVariant="text-bg-primary"
                 add-space
                 v-if="canUseVoltageThresholds()"
             >
+                <InputElement
+                    :label="$t('powerlimiteradmin.IgnoreSoc')"
+                    :tooltip="$t('powerlimiteradmin.IgnoreSocHint')"
+                    v-model="powerLimiterConfigList.ignore_soc"
+                    type="checkbox"
+                    wide
+                />
+
                 <InputElement
                     :label="$t('powerlimiteradmin.StartThreshold')"
                     v-model="powerLimiterConfigList.voltage_start_threshold"
@@ -410,6 +361,50 @@
                     role="alert"
                     v-html="$t('powerlimiteradmin.VoltageLoadCorrectionInfo')"
                 ></div>
+            </CardElement>
+
+            <CardElement
+                :text="$t('powerlimiteradmin.SocThresholds')"
+                textVariant="text-bg-primary"
+                add-space
+                v-if="canUseSoCThresholds()"
+            >
+                <InputElement
+                    :label="$t('powerlimiteradmin.StartThreshold')"
+                    v-model="powerLimiterConfigList.battery_soc_start_threshold"
+                    placeholder="80"
+                    min="0"
+                    max="100"
+                    postfix="%"
+                    type="number"
+                    wide
+                />
+
+                <InputElement
+                    :label="$t('powerlimiteradmin.StopThreshold')"
+                    v-model="powerLimiterConfigList.battery_soc_stop_threshold"
+                    placeholder="20"
+                    min="0"
+                    max="100"
+                    postfix="%"
+                    type="number"
+                    wide
+                />
+
+                <InputElement
+                    :label="$t('powerlimiteradmin.FullSolarPassthroughStartThreshold')"
+                    :tooltip="$t('powerlimiteradmin.FullSolarPassthroughStartThresholdHint')"
+                    v-model="powerLimiterConfigList.full_solar_passthrough_soc"
+                    v-if="isSolarPassthroughEnabled()"
+                    placeholder="80"
+                    min="0"
+                    max="100"
+                    postfix="%"
+                    type="number"
+                    wide
+                />
+
+                <div class="alert alert-secondary" role="alert" v-html="$t('powerlimiteradmin.BatterySocInfo')"></div>
             </CardElement>
 
             <FormFooter @reload="getAllData" />
@@ -648,8 +643,11 @@ export default defineComponent({
             return this.isEnabled() && meta.charge_controller_enabled && this.batteryPoweredInverterConfigured();
         },
         canUseSoCThresholds() {
+            const cfg = this.powerLimiterConfigList;
             const meta = this.powerLimiterMetaData;
-            return this.isEnabled() && meta.battery_enabled && this.batteryPoweredInverterConfigured();
+            return (
+                this.isEnabled() && meta.battery_enabled && this.batteryPoweredInverterConfigured() && !cfg.ignore_soc
+            );
         },
         canUseVoltageThresholds() {
             return this.isEnabled() && this.batteryPoweredInverterConfigured();
