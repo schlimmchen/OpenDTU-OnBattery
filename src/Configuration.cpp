@@ -107,7 +107,7 @@ void ConfigurationClass::serializePowerLimiterConfig(PowerLimiterConfig const& s
     };
 
     // we want a representation of our floating-point value in the JSON that
-    // uses the least amount of decimal digits possble to convey the value that
+    // uses the least amount of decimal digits possible to convey the value that
     // is actually represented by the float. this is no easy task. ArduinoJson
     // does this for us, however, it does it as expected only for variables of
     // type double. this is probably because it assumes all floating-point

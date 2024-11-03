@@ -52,12 +52,13 @@ void WebApiPowerLimiterClass::onMetaData(AsyncWebServerRequest* request)
     root["battery_enabled"] = config.Battery.Enabled;
     root["charge_controller_enabled"] = config.Vedirect.Enabled;
 
-    JsonObject inverters = root["inverters"].to<JsonObject>();
+    JsonArray inverters = root["inverters"].to<JsonArray>();
     for (uint8_t i = 0; i < INV_MAX_COUNT; i++) {
         auto inv = Hoymiles.getInverterBySerial(config.Inverter[i].Serial);
         if (!inv) { continue; }
 
-        JsonObject obj = inverters[inv->serialString()].to<JsonObject>();
+        JsonObject obj = inverters.add<JsonObject>();
+        obj["serial"] = inv->serialString();
         obj["pos"] = i;
         obj["name"] = String(config.Inverter[i].Name);
         obj["poll_enable"] = config.Inverter[i].Poll_Enable;

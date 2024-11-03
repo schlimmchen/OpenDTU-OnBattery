@@ -42,8 +42,10 @@
                     wide
                 />
 
-                <template v-if="powerLimiterConfigList.enabled" v-for="(proxy, serial) in toggleProxies" :key="serial">
+                <template v-if="powerLimiterConfigList.enabled">
                     <InputElement
+                        v-for="(_, serial) in toggleProxies"
+                        :key="serial"
                         :label="$t('powerlimiteradmin.GovernInverter', { name: inverterName(serial) })"
                         v-model="toggleProxies[serial]"
                         type="checkbox"
@@ -104,7 +106,12 @@
 
             <template v-if="isEnabled()">
                 <template v-for="(isInvSelected, serial) in toggleProxies" :key="serial">
-                    <CardElement v-if="isInvSelected" :text="inverterLabel(serial)" textVariant="text-bg-primary" add-space>
+                    <CardElement
+                        v-if="isInvSelected"
+                        :text="inverterLabel(serial)"
+                        textVariant="text-bg-primary"
+                        add-space
+                    >
                     </CardElement>
                 </template>
                 <CardElement :text="$t('powerlimiteradmin.ManagedInverters')" textVariant="text-bg-primary" add-space>
@@ -216,9 +223,7 @@
                             >
                                 <option
                                     v-for="channel in range(
-                                        powerLimiterMetaData.inverters[
-                                            powerLimiterConfigList.inverter_serial_for_dc_voltage
-                                        ].channels
+                                        getInverterInfo(powerLimiterConfigList.inverter_serial_for_dc_voltage).channels
                                     )"
                                     :key="channel"
                                     :value="channel"
@@ -526,7 +531,12 @@ import InputElement from '@/components/InputElement.vue';
 import ModalDialog from '@/components/ModalDialog.vue';
 import * as bootstrap from 'bootstrap';
 import { BIconInfoCircle, BIconDatabaseAdd, BIconTrash, BIconPencil } from 'bootstrap-icons-vue';
-import type { PowerLimiterConfig, PowerLimiterInverterConfig, PowerLimiterMetaData } from '@/types/PowerLimiterConfig';
+import type {
+    PowerLimiterConfig,
+    PowerLimiterInverterConfig,
+    PowerLimiterMetaData,
+    PowerLimiterInverterInfo,
+} from '@/types/PowerLimiterConfig';
 
 export default defineComponent({
     components: {
@@ -558,11 +568,13 @@ export default defineComponent({
         };
     },
     mounted() {
+        window.console.log('wtf?');
         this.modalEdit = new bootstrap.Modal('#inverterEdit');
         this.modalDelete = new bootstrap.Modal('#inverterDelete');
     },
     created() {
         this.getAllData();
+        console.log('hm?');
     },
     watch: {
         unmanagedInverters(newInverters) {
@@ -596,9 +608,15 @@ export default defineComponent({
             }
 
             const managedSerials = managedInverters.map((inverter) => inverter.serial);
-            const res = Object.keys(this.powerLimiterMetaData.inverters).filter(
-                (serial) => !managedSerials.includes(serial)
-            );
+
+            const inverterInfo = this.powerLimiterMetaData.inverters;
+            if (!inverterInfo) {
+                return [];
+            }
+            console.log(inverterInfo);
+            const res = inverterInfo
+                .map((inverter) => inverter.serial)
+                .filter((serial) => !managedSerials.includes(serial));
             return res;
         },
         batteryPoweredInverters() {
@@ -606,6 +624,14 @@ export default defineComponent({
         },
     },
     methods: {
+        getInverterInfo(serial: string): PowerLimiterInverterInfo {
+            console.log('should see me..');
+            console.log(this.powerLimiterMetaData.inverters);
+            return (
+                this.powerLimiterMetaData.inverters?.find((inv) => inv.serial === serial) ||
+                ({} as PowerLimiterInverterInfo)
+            );
+        },
         getConfigHints() {
             const meta = this.powerLimiterMetaData;
             const hints = [];
@@ -614,14 +640,13 @@ export default defineComponent({
                 hints.push({ severity: 'optional', subject: 'PowerMeterDisabled' });
             }
 
-            if (typeof meta.inverters === 'undefined' || Object.keys(meta.inverters).length == 0) {
+            if (typeof meta.inverters === 'undefined' || meta.inverters.length == 0) {
                 hints.push({ severity: 'requirement', subject: 'NoInverter' });
                 this.configAlert = true;
             } else {
                 const managedInverters = this.powerLimiterConfigList.inverters;
                 for (const managedInv of Object.values(managedInverters)) {
-                    const metaInverters = this.powerLimiterMetaData.inverters;
-                    const inv = metaInverters[managedInv.serial];
+                    const inv = this.getInverterInfo(managedInv.serial);
                     if (!inv) {
                         continue;
                     }
@@ -648,7 +673,7 @@ export default defineComponent({
             return hints;
         },
         isEnabled() {
-            return this.powerLimiterConfigList.enabled && Object.values(this.toggleProxies).some(v => v === true);
+            return this.powerLimiterConfigList.enabled && Object.values(this.toggleProxies).some((v) => v === true);
         },
         hasPowerMeter() {
             return this.powerLimiterMetaData.power_meter_enabled;
@@ -679,7 +704,7 @@ export default defineComponent({
             if (meta === undefined) {
                 return 'metadata pending';
             }
-            const inv = meta.inverters[serial];
+            const inv = this.getInverterInfo(serial);
             if (inv === undefined) {
                 return 'not found';
             }
@@ -693,7 +718,7 @@ export default defineComponent({
             if (meta === undefined) {
                 return 'metadata pending';
             }
-            const inv = meta.inverters[serial];
+            const inv = this.getInverterInfo(serial);
             if (inv === undefined) {
                 return 'not found';
             }
@@ -704,7 +729,6 @@ export default defineComponent({
         },
         needsChannelSelection() {
             const cfg = this.powerLimiterConfigList;
-            const meta = this.powerLimiterMetaData;
 
             const reset = function () {
                 cfg.inverter_channel_id_for_dc_voltage = 0;
@@ -719,7 +743,7 @@ export default defineComponent({
                 return reset();
             }
 
-            const inverter = meta.inverters[cfg.inverter_serial_for_dc_voltage];
+            const inverter = this.getInverterInfo(cfg.inverter_serial_for_dc_voltage);
             if (inverter === undefined) {
                 return reset();
             }
@@ -784,15 +808,18 @@ export default defineComponent({
             fetch('/api/powerlimiter/metadata', { headers: authHeader() })
                 .then((response) => handleResponse(response, this.$emitter, this.$router))
                 .then((data) => {
+                    console.log(data);
                     this.powerLimiterMetaData = data;
                     fetch('/api/powerlimiter/config', { headers: authHeader() })
                         .then((response) => handleResponse(response, this.$emitter, this.$router))
                         .then((data) => {
+                            console.log(data);
+                            data.inverters.filter((cfgInv: PowerLimiterInverterConfig) =>
+                                this.powerLimiterMetaData.inverters.some((metaInv) => metaInv.serial === cfgInv.serial)
+                            );
                             this.powerLimiterConfigList = data;
-                            this.toggleProxies = Object.keys(this.powerLimiterMetaData.inverters).reduce((acc, key) => {
-                                acc[key] = this.powerLimiterConfigList.inverters.some(inv => inv.serial === key);
-                                return acc;
-                            }, {});
+                            // TODO remove inverters not in meta inverters
+                            // TODO add default settings for missing inverters
                             this.dataLoading = false;
                         });
                 });

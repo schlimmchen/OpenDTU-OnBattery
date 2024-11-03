@@ -1,4 +1,5 @@
 export interface PowerLimiterInverterInfo {
+    serial: string;
     pos: number;
     name: string;
     poll_enable: boolean;
@@ -15,7 +16,7 @@ export interface PowerLimiterMetaData {
     power_meter_enabled: boolean;
     battery_enabled: boolean;
     charge_controller_enabled: boolean;
-    inverters: { [key: string]: PowerLimiterInverterInfo };
+    inverters: PowerLimiterInverterInfo[];
 }
 
 export interface PowerLimiterInverterConfig {
