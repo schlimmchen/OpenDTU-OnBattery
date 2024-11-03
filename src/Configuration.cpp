@@ -147,6 +147,7 @@ void ConfigurationClass::serializePowerLimiterConfig(PowerLimiterConfig const& s
         JsonObject t = inverters.add<JsonObject>();
 
         t["serial"] = serialStr(s.Serial);
+        t["is_governed"] = s.IsGoverned;
         t["is_behind_power_meter"] = s.IsBehindPowerMeter;
         t["is_solar_powered"] = s.IsSolarPowered;
         t["use_overscaling_to_compensate_shading"] = s.UseOverscalingToCompensateShading;
@@ -461,6 +462,7 @@ void ConfigurationClass::deserializePowerLimiterConfig(JsonObject const& source,
         JsonObject s = inverters[i];
 
         inv.Serial = serialBin(s["serial"] | String("0")); // 0 marks inverter slot as unused
+        inv.IsGoverned = s["is_governed"] | false;
         inv.IsBehindPowerMeter = s["is_behind_power_meter"] | POWERLIMITER_IS_INVERTER_BEHIND_POWER_METER;
         inv.IsSolarPowered = s["is_solar_powered"] | POWERLIMITER_IS_INVERTER_SOLAR_POWERED;
         inv.UseOverscalingToCompensateShading = s["use_overscaling_to_compensate_shading"] | POWERLIMITER_USE_OVERSCALING_TO_COMPENSATE_SHADING;

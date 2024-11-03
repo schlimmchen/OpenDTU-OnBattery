@@ -130,6 +130,7 @@ using PowerMeterHttpSmlConfig = struct POWERMETER_HTTP_SML_CONFIG_T;
 
 struct POWERLIMITER_INVERTER_CONFIG_T {
     uint64_t Serial;
+    bool IsGoverned;
     bool IsBehindPowerMeter;
     bool IsSolarPowered;
     bool UseOverscalingToCompensateShading;

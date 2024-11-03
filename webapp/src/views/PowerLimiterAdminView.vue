@@ -44,10 +44,10 @@
 
                 <template v-if="powerLimiterConfigList.enabled">
                     <InputElement
-                        v-for="(_, serial) in toggleProxies"
-                        :key="serial"
-                        :label="$t('powerlimiteradmin.GovernInverter', { name: inverterName(serial) })"
-                        v-model="toggleProxies[serial]"
+                        v-for="(inv, idx) in powerLimiterConfigList.inverters"
+                        :key="idx"
+                        :label="$t('powerlimiteradmin.GovernInverter', { name: inverterName(inv.serial) })"
+                        v-model="powerLimiterConfigList.inverters[idx].is_governed"
                         type="checkbox"
                         wide
                     />
@@ -105,77 +105,57 @@
             </CardElement>
 
             <template v-if="isEnabled()">
-                <template v-for="(isInvSelected, serial) in toggleProxies" :key="serial">
+                <template v-for="(inv, idx) in powerLimiterConfigList.inverters" :key="idx">
                     <CardElement
-                        v-if="isInvSelected"
-                        :text="inverterLabel(serial)"
+                        v-if="inv.is_governed"
+                        :text="inverterLabel(inv.serial)"
                         textVariant="text-bg-primary"
                         add-space
                     >
+                        <InputElement
+                            v-if="hasPowerMeter()"
+                            :label="$t('powerlimiteradmin.InverterIsBehindPowerMeter')"
+                            v-model="powerLimiterConfigList.inverters[idx].is_behind_power_meter"
+                            :tooltip="$t('powerlimiteradmin.InverterIsBehindPowerMeterHint')"
+                            type="checkbox"
+                            wide
+                        />
+
+                        <InputElement
+                            :label="$t('powerlimiteradmin.InverterIsSolarPowered')"
+                            v-model="powerLimiterConfigList.inverters[idx].is_solar_powered"
+                            type="checkbox"
+                            wide
+                        />
+
+                        <InputElement
+                            v-if="powerLimiterConfigList.inverters[idx].is_solar_powered"
+                            :label="$t('powerlimiteradmin.UseOverscalingToCompensateShading')"
+                            :tooltip="$t('powerlimiteradmin.UseOverscalingToCompensateShadingHint')"
+                            v-model="powerLimiterConfigList.inverters[idx].use_overscaling_to_compensate_shading"
+                            type="checkbox"
+                            wide
+                        />
+
+                        <InputElement
+                            :label="$t('powerlimiteradmin.LowerPowerLimit')"
+                            :tooltip="$t('powerlimiteradmin.LowerPowerLimitHint')"
+                            v-model="powerLimiterConfigList.inverters[idx].lower_power_limit"
+                            postfix="W"
+                            type="number"
+                            wide
+                        />
+
+                        <InputElement
+                            :label="$t('powerlimiteradmin.UpperPowerLimit')"
+                            v-model="powerLimiterConfigList.inverters[idx].upper_power_limit"
+                            :tooltip="$t('powerlimiteradmin.UpperPowerLimitHint')"
+                            postfix="W"
+                            type="number"
+                            wide
+                        />
                     </CardElement>
                 </template>
-                <CardElement :text="$t('powerlimiteradmin.ManagedInverters')" textVariant="text-bg-primary" add-space>
-                    <div class="row mb-3" v-if="unmanagedInverters.length > 0">
-                        <label for="add_inverter" class="col-sm-4 col-form-label">
-                            {{ $t('powerlimiteradmin.AddInverter') }}
-                        </label>
-                        <div class="col-sm-7">
-                            <select id="add_inverter" class="form-select" v-model="additionalInverterSerial">
-                                <option v-for="serial in unmanagedInverters" :key="serial" :value="serial">
-                                    {{ inverterLabel(serial) }}
-                                </option>
-                            </select>
-                        </div>
-                        <div class="col-sm-1">
-                            <button type="button" class="btn btn-success w-100" @click="addInverter">
-                                <BIconDatabaseAdd />
-                            </button>
-                        </div>
-                    </div>
-                    <div class="table-responsive" v-if="powerLimiterConfigList.inverters.length > 0">
-                        <table class="table">
-                            <tbody>
-                                <tr>
-                                    <th>{{ $t('powerlimiteradmin.InverterLabel') }}</th>
-                                    <th>{{ $t('powerlimiteradmin.PowerSource') }}</th>
-                                    <th>{{ $t('powerlimiteradmin.LowerPowerLimit') }}</th>
-                                    <th>{{ $t('powerlimiteradmin.UpperPowerLimit') }}</th>
-                                    <th></th>
-                                </tr>
-                                <tr v-for="inverter in powerLimiterConfigList.inverters" v-bind:key="inverter.serial">
-                                    <td>{{ inverterLabel(inverter.serial) }}</td>
-                                    <td v-if="inverter.is_solar_powered">
-                                        {{ $t('powerlimiteradmin.PowerSourceSolarPanels') }}
-                                    </td>
-                                    <td v-else>{{ $t('powerlimiteradmin.PowerSourceBattery') }}</td>
-                                    <td>{{ inverter.lower_power_limit }}</td>
-                                    <td>{{ inverter.upper_power_limit }}</td>
-                                    <td>
-                                        <span
-                                            role="button"
-                                            class="text-danger"
-                                            @click="deleteStart(inverter)"
-                                            :title="$t('powerlimiteradmin.DeleteInverter')"
-                                        >
-                                            <BIconTrash /> </span
-                                        >&nbsp;
-                                        <span
-                                            role="button"
-                                            class="text-primary"
-                                            @click="editStart(inverter)"
-                                            :title="$t('powerlimiteradmin.EditInverter')"
-                                        >
-                                            <BIconPencil />
-                                        </span>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div v-else class="alert alert-warning" role="alert">
-                        {{ $t('powerlimiteradmin.NoManagedInverters') }}
-                    </div>
-                </CardElement>
 
                 <CardElement
                     :text="$t('powerlimiteradmin.InverterSettings')"
@@ -429,95 +409,6 @@
             <FormFooter @reload="getAllData" />
         </form>
     </BasePage>
-
-    <ModalDialog
-        modalId="inverterEdit"
-        :title="
-            unmanagedInverters.includes(editInverter.serial)
-                ? $t('powerlimiteradmin.AddInverter')
-                : $t('powerlimiteradmin.EditInverter')
-        "
-        :closeText="$t('powerlimiteradmin.Cancel')"
-    >
-        <div class="row mb-3">
-            <label for="inverter_label" class="col-sm-4 col-form-label">
-                {{ $t('powerlimiteradmin.EditInverterLabel') }}
-            </label>
-            <div class="col-sm-8 col-form-label">
-                {{ inverterLabel(editInverter.serial) }}
-            </div>
-        </div>
-
-        <InputElement
-            v-if="hasPowerMeter()"
-            :label="$t('powerlimiteradmin.InverterIsBehindPowerMeter')"
-            v-model="editInverter.is_behind_power_meter"
-            :tooltip="$t('powerlimiteradmin.InverterIsBehindPowerMeterHint')"
-            type="checkbox"
-            wide
-        />
-
-        <InputElement
-            :label="$t('powerlimiteradmin.InverterIsSolarPowered')"
-            v-model="editInverter.is_solar_powered"
-            type="checkbox"
-            wide
-        />
-
-        <InputElement
-            v-if="editInverter.is_solar_powered"
-            :label="$t('powerlimiteradmin.UseOverscalingToCompensateShading')"
-            :tooltip="$t('powerlimiteradmin.UseOverscalingToCompensateShadingHint')"
-            v-model="editInverter.use_overscaling_to_compensate_shading"
-            type="checkbox"
-            wide
-        />
-
-        <InputElement
-            :label="$t('powerlimiteradmin.LowerPowerLimit')"
-            :tooltip="$t('powerlimiteradmin.LowerPowerLimitHint')"
-            v-model="editInverter.lower_power_limit"
-            postfix="W"
-            type="number"
-            wide
-        />
-
-        <InputElement
-            :label="$t('powerlimiteradmin.UpperPowerLimit')"
-            v-model="editInverter.upper_power_limit"
-            :tooltip="$t('powerlimiteradmin.UpperPowerLimitHint')"
-            postfix="W"
-            type="number"
-            wide
-        />
-
-        <template #footer>
-            <button type="button" class="btn btn-primary" @click="editSubmit">
-                {{ $t('powerlimiteradmin.Apply') }}
-            </button>
-        </template>
-    </ModalDialog>
-
-    <ModalDialog
-        modalId="inverterDelete"
-        small
-        :title="$t('powerlimiteradmin.DeleteInverter')"
-        :closeText="$t('powerlimiteradmin.Cancel')"
-    >
-        <div>
-            {{
-                $t('powerlimiteradmin.DeleteInverterMsg', {
-                    serial: editInverter.serial,
-                    label: inverterLabel(editInverter.serial),
-                })
-            }}
-        </div>
-        <template #footer>
-            <button type="button" class="btn btn-danger" @click="deleteSubmit">
-                {{ $t('powerlimiteradmin.Delete') }}
-            </button>
-        </template>
-    </ModalDialog>
 </template>
 
 <script lang="ts">
@@ -528,9 +419,7 @@ import { handleResponse, authHeader } from '@/utils/authentication';
 import CardElement from '@/components/CardElement.vue';
 import FormFooter from '@/components/FormFooter.vue';
 import InputElement from '@/components/InputElement.vue';
-import ModalDialog from '@/components/ModalDialog.vue';
-import * as bootstrap from 'bootstrap';
-import { BIconInfoCircle, BIconDatabaseAdd, BIconTrash, BIconPencil } from 'bootstrap-icons-vue';
+import { BIconInfoCircle } from 'bootstrap-icons-vue';
 import type {
     PowerLimiterConfig,
     PowerLimiterInverterConfig,
@@ -546,10 +435,6 @@ export default defineComponent({
         FormFooter,
         InputElement,
         BIconInfoCircle,
-        BIconDatabaseAdd,
-        BIconTrash,
-        BIconPencil,
-        ModalDialog,
     },
     data() {
         return {
@@ -560,79 +445,37 @@ export default defineComponent({
             alertType: 'info',
             showAlert: false,
             configAlert: false,
-            toggleProxies: {} as object,
-            additionalInverterSerial: '',
-            modalEdit: {} as bootstrap.Modal,
-            modalDelete: {} as bootstrap.Modal,
-            editInverter: {} as PowerLimiterInverterConfig,
         };
-    },
-    mounted() {
-        window.console.log('wtf?');
-        this.modalEdit = new bootstrap.Modal('#inverterEdit');
-        this.modalDelete = new bootstrap.Modal('#inverterDelete');
     },
     created() {
         this.getAllData();
-        console.log('hm?');
     },
     watch: {
-        unmanagedInverters(newInverters) {
-            if (newInverters.includes(this.additionalInverterSerial)) {
-                return;
-            }
-            this.additionalInverterSerial = newInverters.length > 0 ? newInverters[0] : '';
-        },
-        'powerLimiterConfigList.inverter_serial_for_dc_voltage'(newValue) {
-            if (newValue === '') {
-                return; // do no inspect placeholder value
-            }
-
-            const managedInverters = this.powerLimiterConfigList.inverters;
-            if (!managedInverters) {
-                return [];
-            }
-
-            const managedSerials = managedInverters.map((inverter) => inverter.serial);
-            if (!managedSerials.includes(newValue)) {
+        governedInverters() {
+            console.log("new governed inverters");
+            if (!this.governedInverters.some((inv: PowerLimiterInverterConfig) => inv.serial == this.powerLimiterConfigList.inverter_serial_for_dc_voltage)) {
                 // marks serial as invalid, selects placeholder option
+                console.log("resetting serial for voltage measurement");
                 this.powerLimiterConfigList.inverter_serial_for_dc_voltage = '';
             }
         },
     },
     computed: {
-        unmanagedInverters() {
-            const managedInverters = this.powerLimiterConfigList.inverters;
-            if (!managedInverters) {
-                return [];
-            }
-
-            const managedSerials = managedInverters.map((inverter) => inverter.serial);
-
-            const inverterInfo = this.powerLimiterMetaData.inverters;
-            if (!inverterInfo) {
-                return [];
-            }
-            console.log(inverterInfo);
-            const res = inverterInfo
-                .map((inverter) => inverter.serial)
-                .filter((serial) => !managedSerials.includes(serial));
-            return res;
+        governedInverters(): [PowerLimiterInverterConfig] {
+            return this.powerLimiterConfigList?.inverters?.filter((inv: PowerLimiterInverterConfig) => inv.is_governed) || [];
         },
-        batteryPoweredInverters() {
-            return this.powerLimiterConfigList.inverters.filter((inverter) => !inverter.is_solar_powered);
+        batteryPoweredInverters(): [PowerLimiterInverterConfig] {
+            return this.governedInverters.filter((inv: PowerLimiterInverterConfig) => !inv.is_solar_powered);
         },
     },
     methods: {
         getInverterInfo(serial: string): PowerLimiterInverterInfo {
-            console.log('should see me..');
-            console.log(this.powerLimiterMetaData.inverters);
             return (
-                this.powerLimiterMetaData.inverters?.find((inv) => inv.serial === serial) ||
+                this.powerLimiterMetaData.inverters?.find((inv: PowerLimiterInverterInfo) => inv.serial === serial) ||
                 ({} as PowerLimiterInverterInfo)
             );
         },
-        getConfigHints() {
+        getConfigHints(): [object] {
             const meta = this.powerLimiterMetaData;
             const hints = [];
 
@@ -673,7 +516,8 @@ export default defineComponent({
             return hints;
         },
         isEnabled() {
-            return this.powerLimiterConfigList.enabled && Object.values(this.toggleProxies).some((v) => v === true);
+            const cfg = this.powerLimiterConfigList;
+            return cfg.enabled && this.governedInverters.length > 0;
         },
         hasPowerMeter() {
             return this.powerLimiterMetaData.power_meter_enabled;
@@ -754,72 +598,31 @@ export default defineComponent({
 
             return inverter.channels > 1;
         },
-        addInverter() {
-            const newInverter = {} as PowerLimiterInverterConfig;
-            newInverter.is_behind_power_meter = true;
-            newInverter.serial = this.additionalInverterSerial;
-            this.editStart(newInverter);
-        },
-        editStart(inverter: PowerLimiterInverterConfig) {
-            this.editInverter = {} as PowerLimiterInverterConfig;
-            Object.assign(this.editInverter, inverter);
-            this.modalEdit.show();
-        },
-        editSubmit() {
-            this.modalEdit.hide();
-
-            const cfg = this.powerLimiterConfigList;
-
-            let assigned = false;
-            for (const inverter of cfg.inverters) {
-                if (inverter.serial == this.editInverter.serial) {
-                    Object.assign(inverter, this.editInverter);
-                    assigned = true;
-                    break;
-                }
-            }
-
-            if (!assigned) {
-                cfg.inverters.push(JSON.parse(JSON.stringify(this.editInverter)));
-            }
-        },
-        deleteStart(inverter: PowerLimiterInverterConfig) {
-            Object.assign(this.editInverter, inverter);
-            this.modalDelete.show();
-        },
-        deleteSubmit() {
-            this.modalDelete.hide();
-            const cfg = this.powerLimiterConfigList;
-            for (let i = 0; i < cfg.inverters.length; i++) {
-                if (cfg.inverters[i].serial === this.editInverter.serial) {
-                    cfg.inverters.splice(i, 1);
-                    break;
-                }
-            }
-
-            if (cfg.inverter_serial_for_dc_voltage === this.editInverter.serial) {
-                // previously selected inverter was deleted. marks serial as
-                // invalid, selects placeholder option.
-                cfg.inverter_serial_for_dc_voltage = '';
-            }
-        },
         getAllData() {
             this.dataLoading = true;
             fetch('/api/powerlimiter/metadata', { headers: authHeader() })
                 .then((response) => handleResponse(response, this.$emitter, this.$router))
                 .then((data) => {
-                    console.log(data);
                     this.powerLimiterMetaData = data;
                     fetch('/api/powerlimiter/config', { headers: authHeader() })
                         .then((response) => handleResponse(response, this.$emitter, this.$router))
                         .then((data) => {
                             console.log(data);
                             data.inverters.filter((cfgInv: PowerLimiterInverterConfig) =>
-                                this.powerLimiterMetaData.inverters.some((metaInv) => metaInv.serial === cfgInv.serial)
+                                this.powerLimiterMetaData.inverters.some(metaInv => metaInv.serial === cfgInv.serial)
                             );
+                            this.powerLimiterMetaData.inverters.map((metaInv: PowerLimiterInverterInfo) => {
+                                if (data.inverters.some((cfgInv: PowerLimiterInverterConfig) => cfgInv.serial === metaInv.serial)) { return; }
+                                const newInv = {} as PowerLimiterInverterConfig;
+                                newInv.serial = metaInv.serial;
+                                newInv.is_governed = false;
+                                newInv.is_behind_power_meter = true;
+                                newInv.lower_power_limit = 10 * metaInv.channels;
+                                newInv.upper_power_limit = 123; // TODO use inverter physical max output
+                                data.inverters.push(newInv);
+                            });
+                            console.log(data);
                             this.powerLimiterConfigList = data;
-                            // TODO remove inverters not in meta inverters
-                            // TODO add default settings for missing inverters
                             this.dataLoading = false;
                         });
                 });

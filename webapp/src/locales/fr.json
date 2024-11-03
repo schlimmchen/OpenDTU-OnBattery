@@ -721,7 +721,7 @@
         "ConfigHintNoBatteryInterface": "SoC-based thresholds can only be used if a battery communication interface is configured.",
         "General": "General",
         "Enable": "Enable",
-        "GovernInverter": "Govern {name}",
+        "GovernInverter": "Govern Inverter \"{name}\"",
         "VerboseLogging": "@:base.VerboseLogging",
         "SolarPassthrough": "Solar-Passthrough",
         "EnableSolarPassthrough": "Enable Solar-Passthrough",
