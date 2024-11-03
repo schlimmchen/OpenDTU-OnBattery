@@ -6,6 +6,7 @@ export interface PowerLimiterInverterInfo {
     poll_enable_night: boolean;
     command_enable: boolean;
     command_enable_night: boolean;
+    max_power: number;
     type: string;
     channels: number;
 }

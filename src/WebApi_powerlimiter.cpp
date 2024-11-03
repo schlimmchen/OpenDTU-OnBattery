@@ -65,7 +65,7 @@ void WebApiPowerLimiterClass::onMetaData(AsyncWebServerRequest* request)
         obj["poll_enable_night"] = config.Inverter[i].Poll_Enable_Night;
         obj["command_enable"] = config.Inverter[i].Command_Enable;
         obj["command_enable_night"] = config.Inverter[i].Command_Enable_Night;
-
+        obj["max_power"] = inv->DevInfo()->getMaxPower(); // okay if zero/unknown
         obj["type"] = inv->typeName();
         auto channels = inv->Statistics()->getChannelsByType(TYPE_DC);
         obj["channels"] = channels.size();
