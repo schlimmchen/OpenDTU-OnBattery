@@ -659,6 +659,7 @@
         "ConfigHintNoBatteryInterface": "SoC-basierte Schwellwerte können nur mit konfigurierter Batteriekommunikationsschnittstelle genutzt werden.",
         "General": "Allgemein",
         "Enable": "Aktiviert",
+        "GovernInverter": "Steuere {name}",
         "VerboseLogging": "@:base.VerboseLogging",
         "SolarPassthrough": "Solar-Passthrough",
         "EnableSolarPassthrough": "Aktiviere Solar-Passthrough",

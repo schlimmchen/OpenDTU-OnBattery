@@ -42,6 +42,15 @@
                     wide
                 />
 
+                <template v-if="powerLimiterConfigList.enabled" v-for="(proxy, serial) in toggleProxies" :key="serial">
+                    <InputElement
+                        :label="$t('powerlimiteradmin.GovernInverter', { name: inverterName(serial) })"
+                        v-model="toggleProxies[serial]"
+                        type="checkbox"
+                        wide
+                    />
+                </template>
+
                 <template v-if="isEnabled()">
                     <InputElement
                         :label="$t('powerlimiteradmin.VerboseLogging')"
@@ -94,6 +103,10 @@
             </CardElement>
 
             <template v-if="isEnabled()">
+                <template v-for="(isInvSelected, serial) in toggleProxies" :key="serial">
+                    <CardElement v-if="isInvSelected" :text="inverterLabel(serial)" textVariant="text-bg-primary" add-space>
+                    </CardElement>
+                </template>
                 <CardElement :text="$t('powerlimiteradmin.ManagedInverters')" textVariant="text-bg-primary" add-space>
                     <div class="row mb-3" v-if="unmanagedInverters.length > 0">
                         <label for="add_inverter" class="col-sm-4 col-form-label">
@@ -537,6 +550,7 @@ export default defineComponent({
             alertType: 'info',
             showAlert: false,
             configAlert: false,
+            toggleProxies: {} as object,
             additionalInverterSerial: '',
             modalEdit: {} as bootstrap.Modal,
             modalDelete: {} as bootstrap.Modal,
@@ -634,7 +648,7 @@ export default defineComponent({
             return hints;
         },
         isEnabled() {
-            return this.powerLimiterConfigList.enabled;
+            return this.powerLimiterConfigList.enabled && Object.values(this.toggleProxies).some(v => v === true);
         },
         hasPowerMeter() {
             return this.powerLimiterMetaData.power_meter_enabled;
@@ -656,6 +670,20 @@ export default defineComponent({
         },
         range(end: number) {
             return Array.from(Array(end).keys());
+        },
+        inverterName(serial: string) {
+            if (serial === undefined) {
+                return 'undefined';
+            }
+            const meta = this.powerLimiterMetaData;
+            if (meta === undefined) {
+                return 'metadata pending';
+            }
+            const inv = meta.inverters[serial];
+            if (inv === undefined) {
+                return 'not found';
+            }
+            return inv.name;
         },
         inverterLabel(serial: string) {
             if (serial === undefined) {
@@ -761,6 +789,10 @@ export default defineComponent({
                         .then((response) => handleResponse(response, this.$emitter, this.$router))
                         .then((data) => {
                             this.powerLimiterConfigList = data;
+                            this.toggleProxies = Object.keys(this.powerLimiterMetaData.inverters).reduce((acc, key) => {
+                                acc[key] = this.powerLimiterConfigList.inverters.some(inv => inv.serial === key);
+                                return acc;
+                            }, {});
                             this.dataLoading = false;
                         });
                 });
